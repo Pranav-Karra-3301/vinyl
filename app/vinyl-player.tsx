@@ -102,15 +102,25 @@ export default function VinylPlayer() {
     isPlaying: playbackState?.is_playing || false
   })
 
-  // Check if desktop on mount
+  // Check if desktop on mount and disable right-click
   useEffect(() => {
     const checkDesktop = () => {
       setIsDesktop(window.innerWidth >= 1024)
     }
 
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault()
+      return false
+    }
+
     checkDesktop()
     window.addEventListener("resize", checkDesktop)
-    return () => window.removeEventListener("resize", checkDesktop)
+    document.addEventListener("contextmenu", handleContextMenu)
+    
+    return () => {
+      window.removeEventListener("resize", checkDesktop)
+      document.removeEventListener("contextmenu", handleContextMenu)
+    }
   }, [])
 
   // Animation loop for vinyl rotation
@@ -549,14 +559,14 @@ export default function VinylPlayer() {
       </div>
 
       {/* Main turntable area with padding */}
-      <div className="flex-1 flex items-center justify-center p-12 lg:p-16 xl:p-20">
-        <div className="w-full h-full max-w-[1600px] max-h-[800px] relative">
+      <div className="flex-1 flex items-center justify-center p-12 lg:p-16 xl:p-20 no-select">
+        <div className="w-full h-full max-w-[1600px] max-h-[800px] relative no-select">
           {/* Responsive container - side by side when wide, stacked when narrow */}
           <div className="flex flex-col xl:flex-row items-center justify-center gap-8 xl:gap-16 h-full relative z-10">
             {/* Album cover - scales with viewport */}
             <div className="relative flex-shrink-0 order-2 xl:order-1 w-full xl:w-auto h-[40vh] xl:h-[60vh] max-h-[500px]">
               <div 
-                className="relative h-full aspect-square mx-auto overflow-hidden cursor-pointer"
+                className="relative h-full aspect-square mx-auto overflow-hidden cursor-pointer no-select"
                 onMouseEnter={() => setAlbumHover(true)}
                 onMouseLeave={() => setAlbumHover(false)}
                 style={{
@@ -570,7 +580,7 @@ export default function VinylPlayer() {
                   src={displayedTrack?.album.images[0]?.url || currentTrack?.album.images[0]?.url || "/placeholder_album.png"}
                   alt="Album Cover"
                   fill
-                  className="object-cover rounded-lg"
+                  className="object-cover rounded-lg no-select"
                   style={{
                     boxShadow: albumHover 
                       ? '0 30px 60px rgba(0,0,0,0.4), 0 10px 20px rgba(0,0,0,0.2)' 
@@ -578,6 +588,7 @@ export default function VinylPlayer() {
                     opacity: albumOpacity,
                     transition: 'opacity 0.5s ease-in-out, box-shadow 0.3s ease-out',
                   }}
+                  draggable={false}
                   priority
                 />
               </div>
@@ -603,7 +614,8 @@ export default function VinylPlayer() {
                     src="/record.svg"
                     alt="Vinyl Record"
                     fill
-                    className="object-contain drop-shadow-2xl"
+                    className="object-contain drop-shadow-2xl no-select"
+                    draggable={false}
                     priority
                   />
                   
@@ -693,10 +705,11 @@ export default function VinylPlayer() {
                       src="/tonearm.svg"
                       alt="Tonearm"
                       fill
-                      className="object-contain drop-shadow-lg"
+                      className="object-contain drop-shadow-lg no-select"
                       style={{
                         objectPosition: "center",
                       }}
+                      draggable={false}
                       priority
                     />
                     {/* Draggable needle area */}
@@ -743,11 +756,37 @@ export default function VinylPlayer() {
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate" style={{
-                  color: theme === 'album' ? '#000' : (theme === 'dark' || theme === 'amoled') ? '#fff' : undefined
-                }}>
-                  {currentTrack.name} • {currentTrack.artists.map((a: any) => a.name).join(", ")}
-                </div>
+                {(() => {
+                  const text = `${currentTrack.name} • ${currentTrack.artists.map((a: any) => a.name).join(", ")}`
+                  const needsMarquee = text.length > 50
+                  
+                  if (needsMarquee) {
+                    return (
+                      <div className="marquee-container">
+                        <div className="marquee-content">
+                          <span className="text-sm font-medium" style={{
+                            color: theme === 'album' ? '#000' : (theme === 'dark' || theme === 'amoled') ? '#fff' : undefined
+                          }}>
+                            {text}
+                          </span>
+                          <span className="text-sm font-medium mx-16" style={{
+                            color: theme === 'album' ? '#000' : (theme === 'dark' || theme === 'amoled') ? '#fff' : undefined
+                          }}>
+                            {text}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  }
+                  
+                  return (
+                    <div className="text-sm font-medium truncate" style={{
+                      color: theme === 'album' ? '#000' : (theme === 'dark' || theme === 'amoled') ? '#fff' : undefined
+                    }}>
+                      {text}
+                    </div>
+                  )
+                })()}
               </div>
             </>
           ) : (
