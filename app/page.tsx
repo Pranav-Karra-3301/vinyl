@@ -3,31 +3,39 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, SkipBack, SkipForward, Volume2, MoreHorizontal } from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, Volume2, MoreHorizontal, Music, LogOut } from "lucide-react"
 import Image from "next/image"
-
-// Mock data for demonstration
-const mockTrack = {
-  id: "1",
-  name: "Bohemian Rhapsody",
-  artists: [{ name: "Queen" }],
-  album: {
-    name: "A Night at the Opera",
-    images: [{ url: "/queen-a-night-at-the-opera.png" }],
-    release_date: "1975",
-  },
-  duration_ms: 355000,
-  explicit: false,
-}
+import { useSpotify } from "@/hooks/use-spotify"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 
 export default function VinylPlayer() {
   const [isDesktop, setIsDesktop] = useState(true)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [volume, setVolume] = useState(75)
   const [rotation, setRotation] = useState(0)
-  const [tonearmAngle, setTonearmAngle] = useState(-35) // Start at rest position
+  const [tonearmAngle, setTonearmAngle] = useState(-35)
+  const [localVolume, setLocalVolume] = useState(75)
   const animationRef = useRef<number>()
+
+  const {
+    user,
+    playbackState,
+    isLoading,
+    error,
+    isAuthenticated,
+    isPremium,
+    play,
+    pause,
+    skipToNext,
+    skipToPrevious,
+    logout
+  } = useSpotify()
 
   // Check if desktop on mount
   useEffect(() => {
@@ -43,7 +51,7 @@ export default function VinylPlayer() {
   // Animation loop for vinyl rotation
   useEffect(() => {
     const animate = () => {
-      if (isPlaying) {
+      if (playbackState?.is_playing) {
         // Realistic vinyl rotation: 33 1/3 RPM = 0.556 rotations per second
         // At 60fps, that's about 3.33 degrees per frame
         setRotation((prev) => (prev + 3.33) % 360)
@@ -57,30 +65,22 @@ export default function VinylPlayer() {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [isPlaying])
+  }, [playbackState?.is_playing])
 
   // Tonearm animation based on play state and progress
   useEffect(() => {
-    if (isPlaying) {
+    if (playbackState?.is_playing && playbackState.item) {
+      // Calculate progress percentage
+      const progress = (playbackState.progress_ms / playbackState.item.duration_ms) * 100
       // When playing, tonearm moves in and tracks progress
       // Starting at outer edge (-10°) to inner track (20°)
       const targetAngle = -10 + (30 * (progress / 100))
       setTonearmAngle(targetAngle)
     } else {
-      // When paused, tonearm moves out to rest position (completely outside record)
+      // When paused, tonearm moves out to rest position
       setTonearmAngle(-35)
     }
-  }, [isPlaying, progress])
-
-  // Mock progress simulation
-  useEffect(() => {
-    if (isPlaying) {
-      const interval = setInterval(() => {
-        setProgress((prev) => (prev >= 100 ? 0 : prev + 0.1))
-      }, 100)
-      return () => clearInterval(interval)
-    }
-  }, [isPlaying])
+  }, [playbackState])
 
   const formatTime = (ms: number) => {
     const minutes = Math.floor(ms / 60000)
@@ -88,8 +88,16 @@ export default function VinylPlayer() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
   }
 
-  const currentTime = (progress / 100) * mockTrack.duration_ms
-  const remainingTime = mockTrack.duration_ms - currentTime
+  const handlePlayPause = async () => {
+    if (playbackState?.is_playing) {
+      await pause()
+    } else {
+      await play()
+    }
+  }
+
+  const currentTrack = playbackState?.item || null
+  const progress = currentTrack ? (playbackState.progress_ms / currentTrack.duration_ms) * 100 : 0
 
   if (!isDesktop) {
     return (
@@ -104,6 +112,58 @@ export default function VinylPlayer() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 flex flex-col">
+      {/* Header with Spotify Auth */}
+      <div className="absolute top-4 right-4 z-50">
+        {isAuthenticated ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={user?.images?.[0]?.url} />
+                  <AvatarFallback>{user?.display_name?.[0]}</AvatarFallback>
+                </Avatar>
+                <span className="text-sm">{user?.display_name}</span>
+                {isPremium && (
+                  <Badge variant="secondary" className="text-xs">Premium</Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                {user?.email}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {!isPremium && (
+                <>
+                  <DropdownMenuItem disabled className="text-xs">
+                    <Music className="mr-2 h-3 w-3" />
+                    Free Account - Playback Limited
+                  </DropdownMenuItem>
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    Control playback from Spotify app
+                  </div>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem onClick={logout} className="text-red-600">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button 
+            asChild 
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <a href="/api/auth/spotify/login">
+              <Music className="mr-2 h-4 w-4" />
+              Sign in with Spotify
+            </a>
+          </Button>
+        )}
+      </div>
+
       {/* Main turntable area with padding */}
       <div className="flex-1 flex items-center justify-center p-12 lg:p-16 xl:p-20">
         <div className="w-full h-full max-w-[1600px] max-h-[800px]">
@@ -112,16 +172,22 @@ export default function VinylPlayer() {
             {/* Album cover - scales with viewport */}
             <div className="relative flex-shrink-0 order-2 xl:order-1 w-full xl:w-auto h-[40vh] xl:h-[60vh] max-h-[500px]">
               <div className="relative h-full aspect-square mx-auto">
-                <Image
-                  src={mockTrack.album.images[0].url}
-                  alt="Album Cover"
-                  fill
-                  className="object-cover rounded-lg shadow-2xl"
-                  style={{
-                    filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.3))",
-                  }}
-                  priority
-                />
+                {currentTrack ? (
+                  <Image
+                    src={currentTrack.album.images[0]?.url || "/placeholder.svg"}
+                    alt="Album Cover"
+                    fill
+                    className="object-cover rounded-lg shadow-2xl"
+                    style={{
+                      filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.3))",
+                    }}
+                    priority
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-200 rounded-lg shadow-2xl flex items-center justify-center">
+                    <Music className="w-20 h-20 text-gray-400" />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -133,7 +199,7 @@ export default function VinylPlayer() {
                   className="absolute inset-0"
                   style={{
                     transform: `rotate(${rotation}deg)`,
-                    transition: isPlaying ? "none" : "transform 0.3s ease-out",
+                    transition: playbackState?.is_playing ? "none" : "transform 0.3s ease-out",
                   }}
                 >
                   <Image
@@ -146,10 +212,26 @@ export default function VinylPlayer() {
                   
                   {/* Center label overlay - scales proportionally */}
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[32%] h-[32%] rounded-full bg-white shadow-lg flex flex-col items-center justify-center text-center p-2">
-                    <div className="text-[0.7rem] lg:text-xs font-semibold text-gray-900 mb-1 truncate w-full">{mockTrack.name}</div>
-                    <div className="text-[0.6rem] lg:text-[10px] text-gray-600 truncate w-full">{mockTrack.artists[0].name}</div>
-                    <div className="text-[0.6rem] lg:text-[10px] text-gray-500 truncate w-full">{mockTrack.album.name}</div>
-                    <div className="text-[0.5rem] lg:text-[9px] text-gray-400 mt-1">{mockTrack.album.release_date}</div>
+                    {currentTrack ? (
+                      <>
+                        <div className="text-[0.7rem] lg:text-xs font-semibold text-gray-900 mb-1 truncate w-full">
+                          {currentTrack.name}
+                        </div>
+                        <div className="text-[0.6rem] lg:text-[10px] text-gray-600 truncate w-full">
+                          {currentTrack.artists[0].name}
+                        </div>
+                        <div className="text-[0.6rem] lg:text-[10px] text-gray-500 truncate w-full">
+                          {currentTrack.album.name}
+                        </div>
+                        <div className="text-[0.5rem] lg:text-[9px] text-gray-400 mt-1">
+                          {currentTrack.album.release_date?.split('-')[0]}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[0.6rem] lg:text-[10px] text-gray-400">
+                        {isAuthenticated ? "No track playing" : "Sign in to play"}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -171,7 +253,7 @@ export default function VinylPlayer() {
                       transform: `rotate(${tonearmAngle}deg)`,
                       // Pivot point at 63.5% from left, 22.4% from top (based on SVG pivot element position)
                       transformOrigin: "63.5% 22.4%",
-                      transition: isPlaying ? "transform 0.3s ease-out" : "transform 0.8s ease-in-out",
+                      transition: playbackState?.is_playing ? "transform 0.3s ease-out" : "transform 0.8s ease-in-out",
                     }}
                   >
                     <Image
@@ -196,58 +278,108 @@ export default function VinylPlayer() {
       <div className="fixed bottom-0 left-0 right-0 h-18 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-6 flex items-center justify-between">
         {/* Left: Track info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="relative w-12 h-12 rounded overflow-hidden shadow-sm">
-            <Image
-              src={mockTrack.album.images[0].url}
-              alt="Album Thumbnail"
-              fill
-              className="object-cover"
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-gray-900 truncate">
-              {mockTrack.name} • {mockTrack.artists[0].name}
+          {currentTrack ? (
+            <>
+              <div className="relative w-12 h-12 rounded overflow-hidden shadow-sm">
+                <Image
+                  src={currentTrack.album.images[0]?.url || "/placeholder.svg"}
+                  alt="Album Thumbnail"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-gray-900 truncate">
+                  {currentTrack.name} • {currentTrack.artists.map(a => a.name).join(", ")}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-gray-500">
+              {isAuthenticated ? "No track playing" : "Sign in to see what's playing"}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Center: Transport controls */}
         <div className="flex items-center gap-4 flex-1 justify-center">
-          <Button variant="ghost" size="sm">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={skipToPrevious}
+            disabled={!isAuthenticated || (!isPremium && !playbackState?.is_playing)}
+          >
             <SkipBack className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setIsPlaying(!isPlaying)} className="w-10 h-10 rounded-full">
-            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handlePlayPause} 
+            className="w-10 h-10 rounded-full"
+            disabled={!isAuthenticated || (!isPremium && !playbackState?.item)}
+          >
+            {playbackState?.is_playing ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={skipToNext}
+            disabled={!isAuthenticated || (!isPremium && !playbackState?.is_playing)}
+          >
             <SkipForward className="w-4 h-4" />
           </Button>
 
           {/* Progress bar */}
-          <div className="flex items-center gap-2 ml-4">
-            <span className="text-xs text-gray-500 w-10 text-right">{formatTime(currentTime)}</span>
-            <Slider
-              value={[progress]}
-              onValueChange={(value) => setProgress(value[0])}
-              max={100}
-              step={0.1}
-              className="w-32"
-            />
-            <span className="text-xs text-gray-500 w-10">-{formatTime(remainingTime)}</span>
-          </div>
+          {currentTrack && (
+            <div className="flex items-center gap-2 ml-4">
+              <span className="text-xs text-gray-500 w-10 text-right">
+                {formatTime(playbackState?.progress_ms || 0)}
+              </span>
+              <Slider
+                value={[progress]}
+                max={100}
+                step={0.1}
+                className="w-32"
+                disabled
+              />
+              <span className="text-xs text-gray-500 w-10">
+                -{formatTime((currentTrack.duration_ms - (playbackState?.progress_ms || 0)))}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Right: Volume and settings */}
         <div className="flex items-center gap-3 flex-1 justify-end">
-          <div className="flex items-center gap-2">
-            <Volume2 className="w-4 h-4 text-gray-600" />
-            <Slider value={[volume]} onValueChange={(value) => setVolume(value[0])} max={100} className="w-20" />
-          </div>
+          {playbackState?.device && (
+            <div className="flex items-center gap-2">
+              <Volume2 className="w-4 h-4 text-gray-600" />
+              <Slider 
+                value={[playbackState.device.volume_percent || localVolume]} 
+                max={100} 
+                className="w-20"
+                disabled={!isPremium}
+              />
+            </div>
+          )}
           <Button variant="ghost" size="sm">
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         </div>
       </div>
+
+      {/* Error/Info Messages */}
+      {error && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
+          {error}
+        </div>
+      )}
+      
+      {isAuthenticated && !isPremium && !error && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+          Free account: Play music in Spotify app to see it here
+        </div>
+      )}
     </div>
   )
 }
