@@ -38,10 +38,21 @@ interface SpotifyQueue {
   fullQueue: SpotifyTrack[]
 }
 
+interface SpotifyDevice {
+  id: string
+  is_active: boolean
+  is_private_session: boolean
+  is_restricted: boolean
+  name: string
+  type: string
+  volume_percent: number
+}
+
 export function useSpotify() {
   const [user, setUser] = useState<SpotifyUser | null>(null)
   const [playbackState, setPlaybackState] = useState<SpotifyPlaybackState | null>(null)
   const [queue, setQueue] = useState<SpotifyQueue>({ next: null, previous: null, fullQueue: [] })
+  const [devices, setDevices] = useState<SpotifyDevice[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
@@ -232,6 +243,53 @@ export function useSpotify() {
     return false
   }, [fetchPlaybackState])
 
+  const fetchDevices = useCallback(async () => {
+    try {
+      const response = await fetch('/api/spotify/devices')
+      if (response.ok) {
+        const data = await response.json()
+        setDevices(data.devices || [])
+        return data.devices || []
+      }
+    } catch (err) {
+      console.error('Error fetching devices:', err)
+    }
+    return []
+  }, [])
+
+  const transferPlayback = useCallback(async (deviceId: string, play: boolean = false) => {
+    try {
+      const response = await fetch('/api/spotify/player', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'transfer',
+          device_id: deviceId,
+          play
+        })
+      })
+      
+      if (response.status === 403) {
+        const data = await response.json()
+        setError(data.message || 'Premium required to transfer playback')
+        return false
+      }
+      
+      if (response.ok) {
+        // Refresh playback state after transfer
+        setTimeout(() => {
+          fetchPlaybackState()
+          fetchDevices()
+        }, 500)
+        return true
+      }
+    } catch (err) {
+      console.error('Error transferring playback:', err)
+      setError('Failed to transfer playback')
+    }
+    return false
+  }, [fetchPlaybackState])
+
   const logout = useCallback(async () => {
     try {
       await fetch('/api/auth/spotify/logout', { method: 'POST' })
@@ -272,14 +330,22 @@ export function useSpotify() {
       fetchPlaybackState,
       playbackState?.is_playing ? 1000 : 5000
     )
+    
+    // Fetch devices periodically
+    fetchDevices()
+    const deviceInterval = setInterval(fetchDevices, 10000)
 
-    return () => clearInterval(interval)
-  }, [user, playbackState?.is_playing, fetchPlaybackState])
+    return () => {
+      clearInterval(interval)
+      clearInterval(deviceInterval)
+    }
+  }, [user, playbackState?.is_playing, fetchPlaybackState, fetchDevices])
 
   return {
     user,
     playbackState,
     queue,
+    devices,
     isLoading,
     error,
     accessToken,
@@ -290,6 +356,8 @@ export function useSpotify() {
     skipToNext,
     skipToPrevious,
     setVolume,
+    transferPlayback,
+    fetchDevices,
     logout,
     refreshPlayback: fetchPlaybackState
   }

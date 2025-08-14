@@ -60,6 +60,12 @@ export async function PUT(request: NextRequest) {
       if (volume_percent === undefined || volume_percent < 0 || volume_percent > 100) {
         return NextResponse.json({ error: 'Invalid volume level' }, { status: 400 })
       }
+    } else if (action === 'transfer') {
+      endpoint = 'https://api.spotify.com/v1/me/player'
+      requestBody = {
+        device_ids: [body.device_id],
+        play: body.play || false
+      }
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }

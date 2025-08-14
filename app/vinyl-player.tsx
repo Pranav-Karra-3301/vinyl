@@ -10,6 +10,7 @@ import { useWebPlayback } from "@/hooks/use-web-playback"
 import { useDynamicTitle } from "@/hooks/use-dynamic-title"
 import { RecentItemsPopup } from "@/components/recent-items-popup"
 import { ThemeSelectorPopup } from "@/components/theme-selector-popup"
+import { SpotifyConnect } from "@/components/spotify-connect"
 import { useTheme, generateAlbumGradient } from "@/hooks/use-theme"
 import {
   DropdownMenu,
@@ -43,6 +44,7 @@ export default function VinylPlayer() {
     user,
     playbackState,
     queue,
+    devices,
     isLoading,
     error,
     accessToken,
@@ -53,6 +55,7 @@ export default function VinylPlayer() {
     skipToNext,
     skipToPrevious,
     setVolume: setSpotifyVolume,
+    transferPlayback,
     logout
   } = useSpotify()
 
@@ -420,6 +423,16 @@ export default function VinylPlayer() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--vinyl-bg)' }}>
+      {/* Spotify Connect Device Selector */}
+      {isAuthenticated && playbackState && (
+        <SpotifyConnect
+          devices={devices}
+          currentDevice={playbackState.device}
+          onTransferPlayback={transferPlayback}
+          isPremium={isPremium}
+        />
+      )}
+      
       {/* Header with Spotify Auth */}
       <div className="absolute top-4 right-4 z-50">
         {isAuthenticated ? (
@@ -711,9 +724,9 @@ export default function VinylPlayer() {
 
       {/* Bottom control bar */}
       <div className="fixed bottom-0 left-0 right-0 h-18 px-6 flex items-center justify-between" style={{
-        backgroundColor: 'var(--card)',
-        borderTop: '1px solid var(--border)',
-        color: 'var(--card-foreground)',
+        backgroundColor: theme === 'album' ? 'rgba(255, 255, 255, 0.95)' : 'var(--card)',
+        borderTop: theme === 'album' ? '1px solid rgba(0, 0, 0, 0.1)' : '1px solid var(--border)',
+        color: theme === 'album' ? '#000' : (theme === 'dark' || theme === 'amoled') ? '#fff' : 'var(--card-foreground)',
         backdropFilter: 'none',
         opacity: 1
       }}>
@@ -730,7 +743,9 @@ export default function VinylPlayer() {
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-gray-900 truncate">
+                <div className="text-sm font-medium truncate" style={{
+                  color: theme === 'album' ? '#000' : (theme === 'dark' || theme === 'amoled') ? '#fff' : undefined
+                }}>
                   {currentTrack.name} • {currentTrack.artists.map((a: any) => a.name).join(", ")}
                 </div>
               </div>
@@ -817,7 +832,9 @@ export default function VinylPlayer() {
           {/* Progress bar */}
           {currentTrack && (
             <div className="flex items-center gap-2 ml-4">
-              <span className="text-xs text-gray-500 w-10 text-right">
+              <span className="text-xs w-10 text-right" style={{
+                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+              }}>
                 {formatTime(playbackState?.progress_ms || 0)}
               </span>
               <Slider
@@ -827,7 +844,9 @@ export default function VinylPlayer() {
                 className="w-32"
                 disabled
               />
-              <span className="text-xs text-gray-500 w-10">
+              <span className="text-xs w-10" style={{
+                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+              }}>
                 -{formatTime((currentTrack.duration_ms - (playbackState?.progress_ms || 0)))}
               </span>
             </div>
@@ -838,7 +857,9 @@ export default function VinylPlayer() {
         <div className="flex items-center gap-3 flex-1 justify-end">
           {playbackState?.device && (
             <div className="flex items-center gap-2">
-              <Volume2 className="w-4 h-4 text-gray-600" />
+              <Volume2 className="w-4 h-4" style={{
+                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+              }} />
               <Slider 
                 value={[localVolume]} 
                 max={100} 
@@ -846,7 +867,9 @@ export default function VinylPlayer() {
                 disabled={!isPremium}
                 onValueChange={handleVolumeChange}
               />
-              <span className="text-xs text-gray-500 w-8 text-center">
+              <span className="text-xs w-8 text-center" style={{
+                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+              }}>
                 {Math.round(localVolume)}
               </span>
             </div>
