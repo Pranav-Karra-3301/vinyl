@@ -175,43 +175,89 @@ export async function generateAlbumGradient(imageUrl: string): Promise<string> {
           return
         }
         
-        // Enhance saturation and create more vibrant colors
-        const enhancedColors = sortedColors.map(({r, g, b}) => {
+        // Create Apple Music-style vibrant gradients
+        const enhancedColors = sortedColors.map(({r, g, b}, index) => {
           // Convert to HSL for better color manipulation
-          const max = Math.max(r, g, b)
-          const min = Math.min(r, g, b)
+          const max = Math.max(r, g, b) / 255
+          const min = Math.min(r, g, b) / 255
           const diff = max - min
           const sum = max + min
-          const lightness = sum / 2
+          let h = 0, s = 0, l = sum / 2
           
-          // Boost saturation and adjust lightness for better gradients
-          let newR = r, newG = g, newB = b
-          
-          if (diff > 0) {
-            const saturation = diff / (sum > 255 ? 2 - sum / 255 : sum / 255)
-            const boostedSat = Math.min(saturation * 1.4, 1)
+          if (diff !== 0) {
+            s = l > 0.5 ? diff / (2 - sum) : diff / sum
             
-            // Enhance the most prominent color channel
-            if (r >= g && r >= b) {
-              newR = Math.min(255, r * 1.2)
-            } else if (g >= r && g >= b) {
-              newG = Math.min(255, g * 1.2)
-            } else {
-              newB = Math.min(255, b * 1.2)
+            const rNorm = r / 255
+            const gNorm = g / 255
+            const bNorm = b / 255
+            
+            switch (max) {
+              case rNorm:
+                h = ((gNorm - bNorm) / diff + (g < b ? 6 : 0)) / 6
+                break
+              case gNorm:
+                h = ((bNorm - rNorm) / diff + 2) / 6
+                break
+              case bNorm:
+                h = ((rNorm - gNorm) / diff + 4) / 6
+                break
             }
           }
           
-          return `rgb(${Math.round(newR)}, ${Math.round(newG)}, ${Math.round(newB)})`
+          // Enhance saturation significantly (Apple Music style)
+          s = Math.min(1, s * 2.2)
+          
+          // Adjust lightness for depth - create light and dark variants
+          if (index === 0) {
+            l = Math.max(0.4, Math.min(0.75, l * 1.1)) // Primary color - slightly brighter
+          } else if (index === 1) {
+            l = Math.max(0.25, Math.min(0.6, l * 0.85)) // Secondary - darker
+          } else {
+            l = index % 2 === 0 ? Math.max(0.3, l * 0.9) : Math.min(0.8, l * 1.2)
+          }
+          
+          // Convert back to RGB
+          const hue2rgb = (p: number, q: number, t: number) => {
+            if (t < 0) t += 1
+            if (t > 1) t -= 1
+            if (t < 1/6) return p + (q - p) * 6 * t
+            if (t < 1/2) return q
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6
+            return p
+          }
+          
+          const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+          const p = 2 * l - q
+          
+          const newR = Math.round(hue2rgb(p, q, h + 1/3) * 255)
+          const newG = Math.round(hue2rgb(p, q, h) * 255)
+          const newB = Math.round(hue2rgb(p, q, h - 1/3) * 255)
+          
+          // Add opacity for layering effect
+          return index === 0 ? `rgba(${newR}, ${newG}, ${newB}, 1)` : `rgba(${newR}, ${newG}, ${newB}, 0.9)`
         })
         
-        // Create a multi-stop gradient with the extracted colors
+        // Create Apple Music-style complex gradient with multiple color stops
         let gradient
-        if (enhancedColors.length >= 3) {
-          gradient = `linear-gradient(135deg, ${enhancedColors[0]} 0%, ${enhancedColors[1]} 40%, ${enhancedColors[2]} 100%)`
+        if (enhancedColors.length >= 4) {
+          // Rich multi-color gradient with smooth transitions
+          gradient = `radial-gradient(ellipse at top left, ${enhancedColors[0]} 0%, transparent 50%),
+                      radial-gradient(ellipse at top right, ${enhancedColors[1]} 0%, transparent 50%),
+                      radial-gradient(ellipse at bottom left, ${enhancedColors[2]} 0%, transparent 50%),
+                      radial-gradient(ellipse at bottom right, ${enhancedColors[3]} 0%, transparent 50%),
+                      linear-gradient(180deg, ${enhancedColors[0]} 0%, ${enhancedColors[1]} 100%)`
+        } else if (enhancedColors.length >= 3) {
+          gradient = `radial-gradient(ellipse at top, ${enhancedColors[0]} 0%, transparent 60%),
+                      radial-gradient(ellipse at bottom left, ${enhancedColors[1]} 0%, transparent 60%),
+                      radial-gradient(ellipse at bottom right, ${enhancedColors[2]} 0%, transparent 60%),
+                      linear-gradient(135deg, ${enhancedColors[0]} 0%, ${enhancedColors[1]} 50%, ${enhancedColors[2]} 100%)`
         } else if (enhancedColors.length === 2) {
-          gradient = `linear-gradient(135deg, ${enhancedColors[0]} 0%, ${enhancedColors[1]} 100%)`
+          gradient = `radial-gradient(ellipse at top left, ${enhancedColors[0]} 0%, transparent 70%),
+                      radial-gradient(ellipse at bottom right, ${enhancedColors[1]} 0%, transparent 70%),
+                      linear-gradient(135deg, ${enhancedColors[0]} 0%, ${enhancedColors[1]} 100%)`
         } else {
-          gradient = `linear-gradient(135deg, ${enhancedColors[0]} 0%, ${enhancedColors[0]} 100%)`
+          gradient = `radial-gradient(ellipse at center, ${enhancedColors[0]} 0%, transparent 70%),
+                      linear-gradient(135deg, ${enhancedColors[0]} 0%, ${enhancedColors[0]} 100%)`
         }
         
         resolve(gradient)

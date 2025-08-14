@@ -27,6 +27,8 @@ export default function VinylPlayer() {
   const [tonearmAngle, setTonearmAngle] = useState(-35)
   const [localVolume, setLocalVolume] = useState(75)
   const animationRef = useRef<number>()
+  const [isDraggingNeedle, setIsDraggingNeedle] = useState(false)
+  const [albumHover, setAlbumHover] = useState(false)
   
   // Animation states
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -62,9 +64,20 @@ export default function VinylPlayer() {
   
   // System status checks
   const getSystemStatus = () => {
+    // Check environment variables (these will be available on Vercel deployment)
+    const hasClientId = typeof window !== 'undefined' 
+      ? (!!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || 
+         localStorage.getItem('spotify_client_id') !== null)
+      : !!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID
+      
+    const hasClientSecret = typeof window !== 'undefined'
+      ? (!!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_SECRET || 
+         localStorage.getItem('spotify_client_secret') !== null)
+      : true // Assume it's on server/Vercel if not in browser
+    
     const checks = {
-      spotifyClientId: !!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || !!process.env.SPOTIFY_CLIENT_ID,
-      spotifyClientSecret: !!process.env.SPOTIFY_CLIENT_SECRET, // This won't be available in browser but we can check
+      spotifyClientId: hasClientId,
+      spotifyClientSecret: hasClientSecret,
       authenticated: isAuthenticated,
       themeCache: typeof window !== 'undefined' && !!localStorage.getItem('vinyl-theme'),
       webPlayback: isPremium && isWebPlaybackReady,
@@ -277,6 +290,72 @@ export default function VinylPlayer() {
   const handleSkipPrevious = useCallback(() => {
     runTrackTransition(skipToPrevious)
   }, [runTrackTransition, skipToPrevious])
+  
+  // Handle needle dragging for play/pause
+  const handleNeedleDragStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDraggingNeedle(true)
+  }
+  
+  const handleNeedleDragEnd = useCallback(async (e: MouseEvent) => {
+    if (!isDraggingNeedle) return
+    
+    setIsDraggingNeedle(false)
+    
+    // Get the record element position
+    const recordElement = document.getElementById('vinyl-record')
+    if (!recordElement) return
+    
+    const rect = recordElement.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    
+    // Calculate distance from cursor to record center
+    const distance = Math.sqrt(
+      Math.pow(e.clientX - centerX, 2) + 
+      Math.pow(e.clientY - centerY, 2)
+    )
+    
+    // If needle is on the record (within radius), play; otherwise pause
+    const recordRadius = rect.width / 2
+    const onRecord = distance < recordRadius * 0.9 // 90% of radius to account for edge
+    
+    if (onRecord && !playbackState?.is_playing) {
+      await play()
+    } else if (!onRecord && playbackState?.is_playing) {
+      await pause()
+    }
+  }, [isDraggingNeedle, playbackState?.is_playing, play, pause])
+  
+  const handleNeedleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingNeedle) return
+    
+    // Calculate angle based on mouse position
+    const tonearmElement = document.getElementById('tonearm-container')
+    if (!tonearmElement) return
+    
+    const rect = tonearmElement.getBoundingClientRect()
+    const pivotX = rect.left + rect.width * 0.635 // Pivot at 63.5%
+    const pivotY = rect.top + rect.height * 0.224 // Pivot at 22.4%
+    
+    const angle = Math.atan2(e.clientY - pivotY, e.clientX - pivotX) * (180 / Math.PI)
+    
+    // Constrain angle between -35 (rest) and 20 (inner)
+    const constrainedAngle = Math.max(-35, Math.min(20, angle - 90))
+    setTonearmAngle(constrainedAngle)
+  }, [isDraggingNeedle])
+  
+  // Add drag event listeners
+  useEffect(() => {
+    if (isDraggingNeedle) {
+      document.addEventListener('mousemove', handleNeedleMouseMove)
+      document.addEventListener('mouseup', handleNeedleDragEnd)
+      return () => {
+        document.removeEventListener('mousemove', handleNeedleMouseMove)
+        document.removeEventListener('mouseup', handleNeedleDragEnd)
+      }
+    }
+  }, [isDraggingNeedle, handleNeedleMouseMove, handleNeedleDragEnd])
 
   const currentTrack = playbackState?.item || null
   const progress = currentTrack ? (playbackState.progress_ms / currentTrack.duration_ms) * 100 : 0
@@ -364,16 +443,16 @@ export default function VinylPlayer() {
               <DropdownMenuSeparator />
               
               {/* System Status Section */}
-              <div className="px-2 py-1.5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold">System Status</span>
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${
-                      getSystemStatus().overall === 'success' ? 'bg-green-500 animate-pulse' :
-                      getSystemStatus().overall === 'warning' ? 'bg-yellow-500 animate-pulse' :
-                      'bg-red-500 animate-pulse'
+              <div className="px-3 py-2">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold">System Status</span>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${
+                      getSystemStatus().overall === 'success' ? 'status-dot-success' :
+                      getSystemStatus().overall === 'warning' ? 'status-dot-warning' :
+                      'status-dot-error'
                     }`} />
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground font-medium">
                       {getSystemStatus().overall === 'success' ? 'All systems go' :
                        getSystemStatus().overall === 'warning' ? 'Minor issues' :
                        'Critical error'}
@@ -382,36 +461,36 @@ export default function VinylPlayer() {
                 </div>
                 
                 {/* Individual status checks */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Spotify Client ID</span>
-                    <div className={`w-1.5 h-1.5 rounded-full ${
-                      getSystemStatus().checks.spotifyClientId ? 'bg-green-500' : 'bg-red-500'
+                <div className="space-y-2 pl-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Spotify Client ID</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      getSystemStatus().checks.spotifyClientId ? 'status-dot-success' : 'status-dot-error'
                     }`} />
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Spotify Client Secret</span>
-                    <div className={`w-1.5 h-1.5 rounded-full ${
-                      getSystemStatus().checks.spotifyClientSecret ? 'bg-green-500' : 'bg-red-500'
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Spotify Client Secret</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      getSystemStatus().checks.spotifyClientSecret ? 'status-dot-success' : 'status-dot-error'
                     }`} />
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Authentication</span>
-                    <div className={`w-1.5 h-1.5 rounded-full ${
-                      getSystemStatus().checks.authenticated ? 'bg-green-500' : 'bg-yellow-500'
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Authentication</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      getSystemStatus().checks.authenticated ? 'status-dot-success' : 'status-dot-warning'
                     }`} />
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Theme Cache</span>
-                    <div className={`w-1.5 h-1.5 rounded-full ${
-                      getSystemStatus().checks.themeCache ? 'bg-green-500' : 'bg-yellow-500'
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Theme Cache</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      getSystemStatus().checks.themeCache ? 'status-dot-success' : 'status-dot-warning'
                     }`} />
                   </div>
                   {isPremium && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Web Playback SDK</span>
-                      <div className={`w-1.5 h-1.5 rounded-full ${
-                        getSystemStatus().checks.webPlayback ? 'bg-green-500' : 'bg-yellow-500'
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Web Playback SDK</span>
+                      <div className={`w-2 h-2 rounded-full ${
+                        getSystemStatus().checks.webPlayback ? 'status-dot-success' : 'status-dot-warning'
                       }`} />
                     </div>
                   )}
@@ -463,16 +542,28 @@ export default function VinylPlayer() {
           <div className="flex flex-col xl:flex-row items-center justify-center gap-8 xl:gap-16 h-full relative z-10">
             {/* Album cover - scales with viewport */}
             <div className="relative flex-shrink-0 order-2 xl:order-1 w-full xl:w-auto h-[40vh] xl:h-[60vh] max-h-[500px]">
-              <div className="relative h-full aspect-square mx-auto overflow-hidden">
+              <div 
+                className="relative h-full aspect-square mx-auto overflow-hidden cursor-pointer"
+                onMouseEnter={() => setAlbumHover(true)}
+                onMouseLeave={() => setAlbumHover(false)}
+                style={{
+                  transform: albumHover ? 'translateY(-10px) rotateX(5deg) rotateY(-5deg)' : 'none',
+                  transition: 'transform 0.3s ease-out',
+                  transformStyle: 'preserve-3d',
+                  perspective: '1000px'
+                }}
+              >
                 <Image
                   src={displayedTrack?.album.images[0]?.url || currentTrack?.album.images[0]?.url || "/placeholder_album.png"}
                   alt="Album Cover"
                   fill
-                  className="object-cover rounded-lg shadow-2xl"
+                  className="object-cover rounded-lg"
                   style={{
-                    filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.3))",
+                    boxShadow: albumHover 
+                      ? '0 30px 60px rgba(0,0,0,0.4), 0 10px 20px rgba(0,0,0,0.2)' 
+                      : '0 25px 50px rgba(0,0,0,0.3)',
                     opacity: albumOpacity,
-                    transition: "opacity 0.5s ease-in-out",
+                    transition: 'opacity 0.5s ease-in-out, box-shadow 0.3s ease-out',
                   }}
                   priority
                 />
@@ -484,6 +575,7 @@ export default function VinylPlayer() {
               <div className="relative h-full aspect-square mx-auto">
                 {/* Vinyl record using record.svg */}
                 <div
+                  id="vinyl-record"
                   className="absolute inset-0"
                   style={{
                     transform: `translateX(${recordPosition}%) rotate(${rotation}deg)`,
@@ -564,6 +656,7 @@ export default function VinylPlayer() {
 
                 {/* Tonearm container - fixed position */}
                 <div 
+                  id="tonearm-container"
                   className="absolute"
                   style={{
                     right: "-30%",
@@ -580,7 +673,7 @@ export default function VinylPlayer() {
                       transform: `rotate(${tonearmAngle}deg)`,
                       // Pivot point at 63.5% from left, 22.4% from top (based on SVG pivot element position)
                       transformOrigin: "63.5% 22.4%",
-                      transition: isTransitioning ? "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)" : playbackState?.is_playing ? "transform 0.3s ease-out" : "transform 0.8s ease-in-out",
+                      transition: isDraggingNeedle ? "none" : isTransitioning ? "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)" : playbackState?.is_playing ? "transform 0.3s ease-out" : "transform 0.8s ease-in-out",
                     }}
                   >
                     <Image
@@ -593,6 +686,21 @@ export default function VinylPlayer() {
                       }}
                       priority
                     />
+                    {/* Draggable needle area */}
+                    <div
+                      className="absolute"
+                      style={{
+                        left: '8%',
+                        top: '75%',
+                        width: '15%',
+                        height: '15%',
+                        cursor: isDraggingNeedle ? 'grabbing' : 'grab',
+                        pointerEvents: 'auto',
+                        zIndex: 10,
+                      }}
+                      onMouseDown={handleNeedleDragStart}
+                      title="Drag needle to play/pause"
+                    />
                   </div>
                 </div>
               </div>
@@ -603,8 +711,11 @@ export default function VinylPlayer() {
 
       {/* Bottom control bar */}
       <div className="fixed bottom-0 left-0 right-0 h-18 px-6 flex items-center justify-between" style={{
-        background: 'var(--card)',
-        color: 'var(--card-foreground)'
+        backgroundColor: 'var(--card)',
+        borderTop: '1px solid var(--border)',
+        color: 'var(--card-foreground)',
+        backdropFilter: 'none',
+        opacity: 1
       }}>
         {/* Left: Track info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
