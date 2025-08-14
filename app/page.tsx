@@ -7,6 +7,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, MoreHorizontal, LogOut, Mu
 import Image from "next/image"
 import { useSpotify } from "@/hooks/use-spotify"
 import { useWebPlayback } from "@/hooks/use-web-playback"
+import { useDynamicTitle } from "@/hooks/use-dynamic-title"
 import { RecentItemsPopup } from "@/components/recent-items-popup"
 import {
   DropdownMenu,
@@ -24,6 +25,15 @@ export default function VinylPlayer() {
   const [tonearmAngle, setTonearmAngle] = useState(-35)
   const [localVolume, setLocalVolume] = useState(75)
   const animationRef = useRef<number>()
+  
+  // Animation states
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [animationPhase, setAnimationPhase] = useState<'idle' | 'lifting' | 'retracting' | 'fading-out' | 'fading-in' | 'extending' | 'lowering' | 'complete'>('idle')
+  const [nextTrackData, setNextTrackData] = useState<any>(null)
+  const [previousTrackId, setPreviousTrackId] = useState<string | null>(null)
+  const [recordPosition, setRecordPosition] = useState(0) // 0 = normal, -100 = retracted
+  const [albumOpacity, setAlbumOpacity] = useState(1)
+  const [displayedTrack, setDisplayedTrack] = useState<any>(null)
 
   const {
     user,
@@ -44,6 +54,12 @@ export default function VinylPlayer() {
   // Web Playback SDK for premium users
   const { playUri, isReady: isWebPlaybackReady } = useWebPlayback(accessToken, isPremium)
 
+  // Dynamic title and favicon based on current track
+  useDynamicTitle({
+    currentTrack: currentTrack,
+    isPlaying: playbackState?.is_playing || false
+  })
+
   // Check if desktop on mount
   useEffect(() => {
     const checkDesktop = () => {
@@ -58,10 +74,13 @@ export default function VinylPlayer() {
   // Animation loop for vinyl rotation
   useEffect(() => {
     const animate = () => {
-      if (playbackState?.is_playing) {
-        // Realistic vinyl rotation: 33 1/3 RPM = 0.556 rotations per second
-        // At 60fps, that's about 3.33 degrees per frame
-        setRotation((prev) => (prev + 3.33) % 360)
+      if (playbackState?.is_playing && !isTransitioning) {
+        // Slower rotation: 20 RPM = 0.333 rotations per second
+        // At 60fps, that's about 2 degrees per frame
+        setRotation((prev) => (prev + 2) % 360)
+      } else if (isTransitioning) {
+        // Keep spinning slowly during transition
+        setRotation((prev) => (prev + 1) % 360)
       }
       animationRef.current = requestAnimationFrame(animate)
     }
@@ -72,11 +91,20 @@ export default function VinylPlayer() {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [playbackState?.is_playing])
+  }, [playbackState?.is_playing, isTransitioning])
 
   // Tonearm animation based on play state and progress
   useEffect(() => {
-    if (playbackState?.is_playing && playbackState.item) {
+    if (isTransitioning) {
+      // During transition, tonearm position is controlled by animation phase
+      if (animationPhase === 'lifting' || animationPhase === 'retracting' || 
+          animationPhase === 'fading-out' || animationPhase === 'fading-in' || 
+          animationPhase === 'extending') {
+        setTonearmAngle(-35) // Rest position
+      } else if (animationPhase === 'lowering') {
+        setTonearmAngle(-10) // Start of record
+      }
+    } else if (playbackState?.is_playing && playbackState.item) {
       // Calculate progress percentage
       const progress = (playbackState.progress_ms / playbackState.item.duration_ms) * 100
       // When playing, tonearm moves in and tracks progress
@@ -87,7 +115,7 @@ export default function VinylPlayer() {
       // When paused, tonearm moves out to rest position
       setTonearmAngle(-35)
     }
-  }, [playbackState])
+  }, [playbackState, isTransitioning, animationPhase])
 
   const formatTime = (ms: number) => {
     const minutes = Math.floor(ms / 60000)
@@ -95,7 +123,68 @@ export default function VinylPlayer() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
   }
 
+  // Animation sequence for track transitions
+  const runTrackTransition = useCallback(async (skipAction: () => Promise<boolean>) => {
+    if (isTransitioning) return
+    
+    setIsTransitioning(true)
+    
+    // Phase 1: Lift tonearm (500ms)
+    setAnimationPhase('lifting')
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Phase 2: Retract record into album (800ms)
+    setAnimationPhase('retracting')
+    setRecordPosition(-100)
+    await new Promise(resolve => setTimeout(resolve, 800))
+    
+    // Phase 3: Fade out album (500ms)
+    setAnimationPhase('fading-out')
+    setAlbumOpacity(0)
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Execute the skip action during fade
+    const success = await skipAction()
+    if (!success) {
+      // Reset if skip failed
+      setAlbumOpacity(1)
+      setRecordPosition(0)
+      setIsTransitioning(false)
+      setAnimationPhase('idle')
+      return
+    }
+    
+    // Wait for new track data to load
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Phase 4: Fade in new album (500ms)
+    setAnimationPhase('fading-in')
+    setAlbumOpacity(1)
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Phase 5: Extend record from album (800ms)
+    setAnimationPhase('extending')
+    setRecordPosition(0)
+    await new Promise(resolve => setTimeout(resolve, 800))
+    
+    // Phase 6: Lower tonearm (500ms)
+    setAnimationPhase('lowering')
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Phase 7: Complete and start playback (1000ms delay)
+    setAnimationPhase('complete')
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Resume playback
+    await play()
+    
+    setIsTransitioning(false)
+    setAnimationPhase('idle')
+  }, [isTransitioning, play])
+
   const handlePlayPause = async () => {
+    if (isTransitioning) return
+    
     if (playbackState?.is_playing) {
       await pause()
     } else {
@@ -103,8 +192,37 @@ export default function VinylPlayer() {
     }
   }
 
+  const handleSkipNext = useCallback(() => {
+    runTrackTransition(skipToNext)
+  }, [runTrackTransition, skipToNext])
+
+  const handleSkipPrevious = useCallback(() => {
+    runTrackTransition(skipToPrevious)
+  }, [runTrackTransition, skipToPrevious])
+
   const currentTrack = playbackState?.item || null
   const progress = currentTrack ? (playbackState.progress_ms / currentTrack.duration_ms) * 100 : 0
+
+  // Update displayed track (for animations)
+  useEffect(() => {
+    if (!isTransitioning && currentTrack) {
+      setDisplayedTrack(currentTrack)
+    }
+  }, [currentTrack, isTransitioning])
+
+  // Detect automatic track changes
+  useEffect(() => {
+    if (currentTrack && previousTrackId && currentTrack.id !== previousTrackId && !isTransitioning) {
+      // Track changed automatically (song ended)
+      runTrackTransition(async () => {
+        // Just wait for the new track to be ready
+        return true
+      })
+    }
+    if (currentTrack) {
+      setPreviousTrackId(currentTrack.id)
+    }
+  }, [currentTrack, previousTrackId, isTransitioning, runTrackTransition])
 
   // Show loading state when checking for playback
   if (isLoading && isAuthenticated) {
@@ -192,97 +310,20 @@ export default function VinylPlayer() {
       {/* Main turntable area with padding */}
       <div className="flex-1 flex items-center justify-center p-12 lg:p-16 xl:p-20">
         <div className="w-full h-full max-w-[1600px] max-h-[800px] relative">
-          {/* Queue Albums - Vertical arrangement */}
-          <div className="absolute inset-0 flex flex-col items-center justify-between pointer-events-none" style={{ padding: '2% 0' }}>
-            {/* Previous album - top */}
-            {queue?.previous ? (
-              <div 
-                className="pointer-events-auto cursor-pointer transition-all duration-300 hover:scale-105 relative"
-                style={{
-                  width: '100px',
-                  height: '100px',
-                  opacity: 0.6
-                }}
-                onClick={skipToPrevious}
-              >
-                <Image
-                  src={queue.previous.album.images[0]?.url || "/placeholder_album.png"}
-                  alt="Previous Track"
-                  fill
-                  className="object-cover rounded-lg shadow-lg"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-lg" />
-                <div className="absolute bottom-2 left-2 right-2 text-white">
-                  <p className="text-xs font-semibold truncate">{queue.previous.name}</p>
-                  <p className="text-[10px] opacity-80 truncate">{queue.previous.artists[0].name}</p>
-                </div>
-              </div>
-            ) : (
-              <div 
-                className="relative"
-                style={{
-                  width: '100px',
-                  height: '100px',
-                  opacity: 0.3
-                }}
-              >
-                <div className="w-full h-full rounded-lg bg-gray-300 shadow-lg" />
-              </div>
-            )}
-
-            {/* Spacer for main content */}
-            <div className="flex-1" />
-
-            {/* Next album - bottom */}
-            {queue?.next ? (
-              <div 
-                className="pointer-events-auto cursor-pointer transition-all duration-300 hover:scale-105 relative"
-                style={{
-                  width: '100px',
-                  height: '100px',
-                  opacity: 0.6
-                }}
-                onClick={skipToNext}
-              >
-                <Image
-                  src={queue.next.album.images[0]?.url || "/placeholder_album.png"}
-                  alt="Next Track"
-                  fill
-                  className="object-cover rounded-lg shadow-lg"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-lg" />
-                <div className="absolute bottom-2 left-2 right-2 text-white">
-                  <p className="text-xs font-semibold truncate">{queue.next.name}</p>
-                  <p className="text-[10px] opacity-80 truncate">{queue.next.artists[0].name}</p>
-                </div>
-              </div>
-            ) : (
-              <div 
-                className="relative"
-                style={{
-                  width: '100px',
-                  height: '100px',
-                  opacity: 0.3
-                }}
-              >
-                <div className="w-full h-full rounded-lg bg-gray-300 shadow-lg" />
-              </div>
-            )}
-
-          </div>
-
           {/* Responsive container - side by side when wide, stacked when narrow */}
           <div className="flex flex-col xl:flex-row items-center justify-center gap-8 xl:gap-16 h-full relative z-10">
             {/* Album cover - scales with viewport */}
             <div className="relative flex-shrink-0 order-2 xl:order-1 w-full xl:w-auto h-[40vh] xl:h-[60vh] max-h-[500px]">
-              <div className="relative h-full aspect-square mx-auto">
+              <div className="relative h-full aspect-square mx-auto overflow-hidden">
                 <Image
-                  src={currentTrack?.album.images[0]?.url || "/placeholder_album.png"}
+                  src={displayedTrack?.album.images[0]?.url || currentTrack?.album.images[0]?.url || "/placeholder_album.png"}
                   alt="Album Cover"
                   fill
                   className="object-cover rounded-lg shadow-2xl"
                   style={{
                     filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.3))",
+                    opacity: albumOpacity,
+                    transition: "opacity 0.5s ease-in-out",
                   }}
                   priority
                 />
@@ -296,8 +337,12 @@ export default function VinylPlayer() {
                 <div
                   className="absolute inset-0"
                   style={{
-                    transform: `rotate(${rotation}deg)`,
-                    transition: playbackState?.is_playing ? "none" : "transform 0.3s ease-out",
+                    transform: `translateX(${recordPosition}%) rotate(${rotation}deg)`,
+                    transition: isTransitioning 
+                      ? `transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)` 
+                      : playbackState?.is_playing 
+                        ? "none" 
+                        : "transform 0.3s ease-out",
                   }}
                 >
                   <Image
@@ -310,19 +355,19 @@ export default function VinylPlayer() {
                   
                   {/* Center label overlay - scales proportionally */}
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[32%] h-[32%] rounded-full bg-white shadow-lg flex flex-col items-center justify-center text-center p-2">
-                    {currentTrack ? (
+                    {displayedTrack || currentTrack ? (
                       <>
                         <div className="text-[0.7rem] lg:text-xs font-semibold text-gray-900 mb-1 truncate w-full">
-                          {currentTrack.name}
+                          {(displayedTrack || currentTrack).name}
                         </div>
                         <div className="text-[0.6rem] lg:text-[10px] text-gray-600 truncate w-full">
-                          {currentTrack.artists[0].name}
+                          {(displayedTrack || currentTrack).artists[0].name}
                         </div>
                         <div className="text-[0.6rem] lg:text-[10px] text-gray-500 truncate w-full">
-                          {currentTrack.album.name}
+                          {(displayedTrack || currentTrack).album.name}
                         </div>
                         <div className="text-[0.5rem] lg:text-[9px] text-gray-400 mt-1">
-                          {currentTrack.album.release_date?.split('-')[0]}
+                          {(displayedTrack || currentTrack).album.release_date?.split('-')[0]}
                         </div>
                       </>
                     ) : (
@@ -351,7 +396,7 @@ export default function VinylPlayer() {
                       transform: `rotate(${tonearmAngle}deg)`,
                       // Pivot point at 63.5% from left, 22.4% from top (based on SVG pivot element position)
                       transformOrigin: "63.5% 22.4%",
-                      transition: playbackState?.is_playing ? "transform 0.3s ease-out" : "transform 0.8s ease-in-out",
+                      transition: isTransitioning ? "transform 0.5s ease-in-out" : playbackState?.is_playing ? "transform 0.3s ease-out" : "transform 0.8s ease-in-out",
                     }}
                   >
                     <Image
@@ -411,11 +456,28 @@ export default function VinylPlayer() {
 
         {/* Center: Transport controls */}
         <div className="flex items-center gap-4 flex-1 justify-center">
+          {/* Previous track info */}
+          {queue?.previous && (
+            <div className="hidden lg:flex items-center gap-2 mr-4 opacity-60">
+              <Image
+                src={queue.previous.album.images[0]?.url || "/placeholder_album.png"}
+                alt="Previous"
+                width={32}
+                height={32}
+                className="rounded"
+              />
+              <div className="text-xs text-gray-600 max-w-[100px]">
+                <p className="truncate font-medium">{queue.previous.name}</p>
+                <p className="truncate opacity-75">{queue.previous.artists[0].name}</p>
+              </div>
+            </div>
+          )}
+          
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={skipToPrevious}
-            disabled={!isAuthenticated || (!isPremium && !playbackState?.is_playing)}
+            onClick={handleSkipPrevious}
+            disabled={!isAuthenticated || (!isPremium && !playbackState?.is_playing) || isTransitioning}
           >
             <SkipBack className="w-4 h-4" />
           </Button>
@@ -424,18 +486,35 @@ export default function VinylPlayer() {
             size="sm" 
             onClick={handlePlayPause} 
             className="w-10 h-10 rounded-full"
-            disabled={!isAuthenticated || (!isPremium && !playbackState?.item)}
+            disabled={!isAuthenticated || (!isPremium && !playbackState?.item) || isTransitioning}
           >
             {playbackState?.is_playing ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
           </Button>
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={skipToNext}
-            disabled={!isAuthenticated || (!isPremium && !playbackState?.is_playing)}
+            onClick={handleSkipNext}
+            disabled={!isAuthenticated || (!isPremium && !playbackState?.is_playing) || isTransitioning}
           >
             <SkipForward className="w-4 h-4" />
           </Button>
+          
+          {/* Next track info */}
+          {queue?.next && (
+            <div className="hidden lg:flex items-center gap-2 ml-4 opacity-60">
+              <Image
+                src={queue.next.album.images[0]?.url || "/placeholder_album.png"}
+                alt="Next"
+                width={32}
+                height={32}
+                className="rounded"
+              />
+              <div className="text-xs text-gray-600 max-w-[100px]">
+                <p className="truncate font-medium">{queue.next.name}</p>
+                <p className="truncate opacity-75">{queue.next.artists[0].name}</p>
+              </div>
+            </div>
+          )}
 
           {/* Progress bar */}
           {currentTrack && (
