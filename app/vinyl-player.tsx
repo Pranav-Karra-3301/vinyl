@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, SkipBack, SkipForward, Volume2, MoreHorizontal, LogOut, Music } from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, Volume2, Palette, LogOut, Music } from "lucide-react"
 import Image from "next/image"
 import { useSpotify } from "@/hooks/use-spotify"
 import { useWebPlayback } from "@/hooks/use-web-playback"
@@ -969,8 +969,8 @@ export default function VinylPlayer() {
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <MoreHorizontal className="w-4 h-4" />
+              <Button variant="ghost" size="sm" title="Change theme">
+                <Palette className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 p-0">

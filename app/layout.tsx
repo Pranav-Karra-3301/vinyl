@@ -57,6 +57,19 @@ body {
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: pan-x pan-y;
+  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+body::-webkit-scrollbar {
+  display: none;
+}
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
 }
         `}</style>
       </head>
