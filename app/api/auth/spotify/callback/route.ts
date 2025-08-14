@@ -4,7 +4,7 @@ const TOKEN_URL = 'https://accounts.spotify.com/api/token'
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET
 const REDIRECT_URI = process.env.NODE_ENV === 'production'
-  ? 'https://yourdomain.com/api/auth/spotify/callback'
+  ? 'https://music.pranavkarra.me/api/auth/spotify/callback'
   : 'http://localhost:3000/api/auth/spotify/callback'
 
 export async function GET(request: NextRequest) {
