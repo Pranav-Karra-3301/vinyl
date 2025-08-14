@@ -26,6 +26,7 @@ export default function VinylPlayer() {
   const {
     user,
     playbackState,
+    queue,
     isLoading,
     error,
     isAuthenticated,
@@ -184,9 +185,88 @@ export default function VinylPlayer() {
 
       {/* Main turntable area with padding */}
       <div className="flex-1 flex items-center justify-center p-12 lg:p-16 xl:p-20">
-        <div className="w-full h-full max-w-[1600px] max-h-[800px]">
+        <div className="w-full h-full max-w-[1600px] max-h-[800px] relative">
+          {/* Queue Albums - Vertical arrangement */}
+          <div className="absolute inset-0 flex flex-col items-center justify-between pointer-events-none" style={{ padding: '2% 0' }}>
+            {/* Previous album - top */}
+            {queue?.previous ? (
+              <div 
+                className="pointer-events-auto cursor-pointer transition-all duration-300 hover:scale-105 relative"
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  opacity: 0.6
+                }}
+                onClick={skipToPrevious}
+              >
+                <Image
+                  src={queue.previous.album.images[0]?.url || "/placeholder_album.png"}
+                  alt="Previous Track"
+                  fill
+                  className="object-cover rounded-lg shadow-lg"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-lg" />
+                <div className="absolute bottom-2 left-2 right-2 text-white">
+                  <p className="text-xs font-semibold truncate">{queue.previous.name}</p>
+                  <p className="text-[10px] opacity-80 truncate">{queue.previous.artists[0].name}</p>
+                </div>
+              </div>
+            ) : (
+              <div 
+                className="relative"
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  opacity: 0.3
+                }}
+              >
+                <div className="w-full h-full rounded-lg bg-gray-300 shadow-lg" />
+              </div>
+            )}
+
+            {/* Spacer for main content */}
+            <div className="flex-1" />
+
+            {/* Next album - bottom */}
+            {queue?.next ? (
+              <div 
+                className="pointer-events-auto cursor-pointer transition-all duration-300 hover:scale-105 relative"
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  opacity: 0.6
+                }}
+                onClick={skipToNext}
+              >
+                <Image
+                  src={queue.next.album.images[0]?.url || "/placeholder_album.png"}
+                  alt="Next Track"
+                  fill
+                  className="object-cover rounded-lg shadow-lg"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-lg" />
+                <div className="absolute bottom-2 left-2 right-2 text-white">
+                  <p className="text-xs font-semibold truncate">{queue.next.name}</p>
+                  <p className="text-[10px] opacity-80 truncate">{queue.next.artists[0].name}</p>
+                </div>
+              </div>
+            ) : (
+              <div 
+                className="relative"
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  opacity: 0.3
+                }}
+              >
+                <div className="w-full h-full rounded-lg bg-gray-300 shadow-lg" />
+              </div>
+            )}
+
+          </div>
+
           {/* Responsive container - side by side when wide, stacked when narrow */}
-          <div className="flex flex-col xl:flex-row items-center justify-center gap-8 xl:gap-16 h-full">
+          <div className="flex flex-col xl:flex-row items-center justify-center gap-8 xl:gap-16 h-full relative z-10">
             {/* Album cover - scales with viewport */}
             <div className="relative flex-shrink-0 order-2 xl:order-1 w-full xl:w-auto h-[40vh] xl:h-[60vh] max-h-[500px]">
               <div className="relative h-full aspect-square mx-auto">

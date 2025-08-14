@@ -32,11 +32,33 @@ interface SpotifyPlaybackState {
   } | null
 }
 
+interface SpotifyQueue {
+  next: SpotifyTrack | null
+  previous: SpotifyTrack | null
+  fullQueue: SpotifyTrack[]
+}
+
 export function useSpotify() {
   const [user, setUser] = useState<SpotifyUser | null>(null)
   const [playbackState, setPlaybackState] = useState<SpotifyPlaybackState | null>(null)
+  const [queue, setQueue] = useState<SpotifyQueue>({ next: null, previous: null, fullQueue: [] })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Fetch queue data
+  const fetchQueue = useCallback(async () => {
+    try {
+      const response = await fetch('/api/spotify/queue')
+      if (response.ok) {
+        const queueData = await response.json()
+        setQueue(queueData)
+        return queueData
+      }
+    } catch (err) {
+      console.error('Error fetching queue:', err)
+    }
+    return null
+  }, [])
 
   // Fetch user data
   const fetchUser = useCallback(async () => {
@@ -63,13 +85,15 @@ export function useSpotify() {
       if (response.ok) {
         const data = await response.json()
         setPlaybackState(data)
+        // Fetch queue whenever playback state changes
+        await fetchQueue()
         return data
       }
     } catch (err) {
       console.error('Error fetching playback state:', err)
     }
     return null
-  }, [])
+  }, [fetchQueue])
 
   // Control playback
   const play = useCallback(async () => {
@@ -221,6 +245,7 @@ export function useSpotify() {
   return {
     user,
     playbackState,
+    queue,
     isLoading,
     error,
     isAuthenticated: !!user,
