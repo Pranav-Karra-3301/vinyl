@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server'
 
 const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize'
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
-const REDIRECT_URI = process.env.NODE_ENV === 'production' 
-  ? 'https://music.pranavkarra.me/api/auth/spotify/callback'
-  : 'http://localhost:3000/api/auth/spotify/callback'
+const REDIRECT_URI =
+  process.env.NODE_ENV === 'production'
+    ? [
+        'https://vinyl-taupe.vercel.app/api/auth/spotify/callback',
+        'https://music.pranavkarra.me/api/auth/spotify/callback'
+      ][0] // Change index to [1] if you want to use music.pranavkarra.me as primary
+    : 'http://localhost:3000/api/auth/spotify/callback'
 
 // Scopes needed for playback control and reading user data
 const SCOPES = [
