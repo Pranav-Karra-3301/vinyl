@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PUT play/pause
+// PUT play/pause/volume
 export async function PUT(request: NextRequest) {
   const accessToken = request.cookies.get('spotify_access_token')?.value
   
@@ -46,24 +46,41 @@ export async function PUT(request: NextRequest) {
   
   try {
     const body = await request.json()
-    const { action, device_id } = body
+    const { action, device_id, volume_percent } = body
     
     let endpoint = ''
+    let requestBody = undefined
+    
     if (action === 'play') {
       endpoint = 'https://api.spotify.com/v1/me/player/play'
     } else if (action === 'pause') {
       endpoint = 'https://api.spotify.com/v1/me/player/pause'
+    } else if (action === 'volume') {
+      endpoint = 'https://api.spotify.com/v1/me/player/volume'
+      if (volume_percent === undefined || volume_percent < 0 || volume_percent > 100) {
+        return NextResponse.json({ error: 'Invalid volume level' }, { status: 400 })
+      }
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
     
-    const url = device_id ? `${endpoint}?device_id=${device_id}` : endpoint
+    let url = endpoint
+    if (action === 'volume') {
+      url = `${endpoint}?volume_percent=${Math.round(volume_percent)}`
+      if (device_id) {
+        url += `&device_id=${device_id}`
+      }
+    } else if (device_id) {
+      url = `${endpoint}?device_id=${device_id}`
+    }
     
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: requestBody ? JSON.stringify(requestBody) : undefined
     })
     
     if (response.status === 401) {

@@ -206,6 +206,32 @@ export function useSpotify() {
     return false
   }, [fetchPlaybackState])
 
+  const setVolume = useCallback(async (volumePercent: number) => {
+    try {
+      const response = await fetch('/api/spotify/player', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'volume', volume_percent: volumePercent })
+      })
+      
+      if (response.status === 403) {
+        const data = await response.json()
+        setError(data.message)
+        return false
+      }
+      
+      if (response.ok) {
+        // Refresh playback state to get updated volume
+        setTimeout(() => fetchPlaybackState(), 100)
+        return true
+      }
+    } catch (err) {
+      console.error('Error setting volume:', err)
+      setError('Failed to set volume')
+    }
+    return false
+  }, [fetchPlaybackState])
+
   const logout = useCallback(async () => {
     try {
       await fetch('/api/auth/spotify/logout', { method: 'POST' })
@@ -263,6 +289,7 @@ export function useSpotify() {
     pause,
     skipToNext,
     skipToPrevious,
+    setVolume,
     logout,
     refreshPlayback: fetchPlaybackState
   }

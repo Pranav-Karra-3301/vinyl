@@ -48,11 +48,12 @@ export default function VinylPlayer() {
     pause,
     skipToNext,
     skipToPrevious,
+    setVolume: setSpotifyVolume,
     logout
   } = useSpotify()
 
   // Web Playback SDK for premium users
-  const { playUri, isReady: isWebPlaybackReady } = useWebPlayback(accessToken, isPremium)
+  const { playUri, isReady: isWebPlaybackReady, setVolume: setWebVolume, volume: webVolume } = useWebPlayback(accessToken, isPremium)
 
   // Dynamic title and favicon based on current track
   useDynamicTitle({
@@ -123,6 +124,9 @@ export default function VinylPlayer() {
     
     setIsTransitioning(true)
     
+    // First, pause the current playback to stop music immediately
+    await pause()
+    
     // Phase 1: Lift tonearm OFF the record first (800ms for smoother motion)
     setAnimationPhase('lifting')
     setTonearmAngle(-35) // Move to rest position
@@ -137,20 +141,6 @@ export default function VinylPlayer() {
     setAnimationPhase('fading-out')
     setAlbumOpacity(0)
     await new Promise(resolve => setTimeout(resolve, 600))
-    
-    // Execute the skip action while album is faded out
-    const success = await skipAction()
-    if (!success) {
-      // Reset if skip failed
-      setAlbumOpacity(1)
-      setRecordPosition(0)
-      setIsTransitioning(false)
-      setAnimationPhase('idle')
-      return
-    }
-    
-    // Wait for new track data to fully load (800ms)
-    await new Promise(resolve => setTimeout(resolve, 800))
     
     // Phase 4: Fade in new album FIRST (600ms)
     setAnimationPhase('fading-in')
@@ -167,16 +157,31 @@ export default function VinylPlayer() {
     setTonearmAngle(-10) // Move to start of record
     await new Promise(resolve => setTimeout(resolve, 800))
     
-    // Phase 7: Wait 10 SECONDS before starting playback for dramatic effect
+    // Phase 7: Wait 10 SECONDS before changing track for dramatic effect
     setAnimationPhase('complete')
     await new Promise(resolve => setTimeout(resolve, 10000))
     
-    // Resume playback AFTER everything is in position
+    // NOW execute the skip action after all animation is complete
+    const success = await skipAction()
+    if (!success) {
+      // Reset if skip failed
+      setAlbumOpacity(1)
+      setRecordPosition(0)
+      setTonearmAngle(-35)
+      setIsTransitioning(false)
+      setAnimationPhase('idle')
+      return
+    }
+    
+    // Wait for new track data to fully load (800ms)
+    await new Promise(resolve => setTimeout(resolve, 800))
+    
+    // Resume playback with the new track
     await play()
     
     setIsTransitioning(false)
     setAnimationPhase('idle')
-  }, [isTransitioning, play])
+  }, [isTransitioning, play, pause])
 
   const handlePlayPause = async () => {
     if (isTransitioning) return
@@ -187,6 +192,49 @@ export default function VinylPlayer() {
       await play()
     }
   }
+
+  // Volume control handler
+  const handleVolumeChange = useCallback(async (newVolume: number[]) => {
+    const volumeValue = newVolume[0]
+    setLocalVolume(volumeValue)
+    
+    // Try Web Playback SDK first if available and active
+    if (isPremium && isWebPlaybackReady && setWebVolume) {
+      const success = await setWebVolume(volumeValue)
+      if (success) return
+    }
+    
+    // Fallback to Spotify API
+    if (setSpotifyVolume) {
+      await setSpotifyVolume(volumeValue)
+    }
+  }, [isPremium, isWebPlaybackReady, setWebVolume, setSpotifyVolume])
+
+  // Sync volume from external changes (keyboard/buttons)
+  useEffect(() => {
+    if (playbackState?.device?.volume_percent !== undefined) {
+      setLocalVolume(playbackState.device.volume_percent)
+    } else if (webVolume !== undefined) {
+      setLocalVolume(webVolume)
+    }
+  }, [playbackState?.device?.volume_percent, webVolume])
+
+  // Poll volume more frequently to catch external changes (keyboard, physical buttons)
+  useEffect(() => {
+    if (!isAuthenticated || !isPremium) return
+
+    const pollVolume = async () => {
+      // Only poll if we have a valid playback state
+      if (playbackState?.device?.id) {
+        // This will trigger a refresh of playback state which includes volume
+        // The volume update will be handled by the useEffect above
+      }
+    }
+
+    // Poll every 2 seconds when active to catch external volume changes
+    const interval = setInterval(pollVolume, 2000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated, isPremium, playbackState?.device?.id])
 
   const handleSkipNext = useCallback(() => {
     runTrackTransition(skipToNext)
@@ -538,11 +586,15 @@ export default function VinylPlayer() {
             <div className="flex items-center gap-2">
               <Volume2 className="w-4 h-4 text-gray-600" />
               <Slider 
-                value={[playbackState.device.volume_percent || localVolume]} 
+                value={[localVolume]} 
                 max={100} 
                 className="w-20"
                 disabled={!isPremium}
+                onValueChange={handleVolumeChange}
               />
+              <span className="text-xs text-gray-500 w-8 text-center">
+                {Math.round(localVolume)}
+              </span>
             </div>
           )}
           {isPremium && isWebPlaybackReady && (

@@ -32,6 +32,7 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
   const [currentTrack, setCurrentTrack] = useState<any>(null)
   const [isPaused, setIsPaused] = useState(true)
   const [position, setPosition] = useState(0)
+  const [volume, setVolumeState] = useState(50)
   const playerRef = useRef<WebPlaybackPlayer | null>(null)
 
   // Transfer playback to this device
@@ -87,6 +88,37 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
     }
   }, [token, deviceId])
 
+  // Set volume for Web Playback SDK
+  const setVolume = useCallback(async (volumePercent: number) => {
+    if (playerRef.current && isReady) {
+      try {
+        await playerRef.current.setVolume(volumePercent / 100)
+        setVolumeState(volumePercent)
+        return true
+      } catch (error) {
+        console.error('Error setting volume:', error)
+        return false
+      }
+    }
+    return false
+  }, [isReady])
+
+  // Get current volume from Web Playback SDK
+  const getVolume = useCallback(async () => {
+    if (playerRef.current && isReady) {
+      try {
+        const currentVolume = await playerRef.current.getVolume()
+        const volumePercent = Math.round(currentVolume * 100)
+        setVolumeState(volumePercent)
+        return volumePercent
+      } catch (error) {
+        console.error('Error getting volume:', error)
+        return null
+      }
+    }
+    return null
+  }, [isReady])
+
   useEffect(() => {
     if (!isPremium || !token) return
 
@@ -133,6 +165,22 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
         }
       })
 
+      // Periodically sync volume to catch external changes
+      const volumeSyncInterval = setInterval(async () => {
+        if (spotifyPlayer && isReady) {
+          try {
+            const currentVolume = await spotifyPlayer.getVolume()
+            const volumePercent = Math.round(currentVolume * 100)
+            setVolumeState(volumePercent)
+          } catch (error) {
+            // Ignore errors, just in case the player is not ready
+          }
+        }
+      }, 1000)
+
+      // Store interval reference for cleanup
+      ;(spotifyPlayer as any)._volumeSyncInterval = volumeSyncInterval
+
       // Connect to the player
       spotifyPlayer.connect().then((success: boolean) => {
         if (success) {
@@ -146,6 +194,10 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
 
     return () => {
       if (playerRef.current) {
+        // Clean up volume sync interval
+        if ((playerRef.current as any)._volumeSyncInterval) {
+          clearInterval((playerRef.current as any)._volumeSyncInterval)
+        }
         playerRef.current.disconnect()
       }
       const script = document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')
@@ -163,7 +215,10 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
     currentTrack,
     isPaused,
     position,
+    volume,
     playUri,
-    transferPlayback
+    transferPlayback,
+    setVolume,
+    getVolume
   }
 }
