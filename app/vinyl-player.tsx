@@ -95,27 +95,21 @@ export default function VinylPlayer() {
 
   // Tonearm animation based on play state and progress
   useEffect(() => {
-    if (isTransitioning) {
-      // During transition, tonearm position is controlled by animation phase
-      if (animationPhase === 'lifting' || animationPhase === 'retracting' || 
-          animationPhase === 'fading-out' || animationPhase === 'fading-in' || 
-          animationPhase === 'extending') {
-        setTonearmAngle(-35) // Rest position
-      } else if (animationPhase === 'lowering') {
-        setTonearmAngle(-10) // Start of record
-      }
-    } else if (playbackState?.is_playing && playbackState.item) {
+    // Don't update tonearm during transitions - let runTrackTransition control it
+    if (isTransitioning) return
+    
+    if (playbackState?.is_playing && playbackState.item) {
       // Calculate progress percentage
       const progress = (playbackState.progress_ms / playbackState.item.duration_ms) * 100
       // When playing, tonearm moves in and tracks progress
       // Starting at outer edge (-10°) to inner track (20°)
       const targetAngle = -10 + (30 * (progress / 100))
       setTonearmAngle(targetAngle)
-    } else {
-      // When paused, tonearm moves out to rest position
+    } else if (!isTransitioning) {
+      // When paused (and not transitioning), tonearm moves out to rest position
       setTonearmAngle(-35)
     }
-  }, [playbackState, isTransitioning, animationPhase])
+  }, [playbackState, isTransitioning])
 
   const formatTime = (ms: number) => {
     const minutes = Math.floor(ms / 60000)
@@ -129,21 +123,22 @@ export default function VinylPlayer() {
     
     setIsTransitioning(true)
     
-    // Phase 1: Lift tonearm (500ms)
+    // Phase 1: Lift tonearm OFF the record first (800ms for smoother motion)
     setAnimationPhase('lifting')
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Phase 2: Retract record into album (800ms)
-    setAnimationPhase('retracting')
-    setRecordPosition(-100)
+    setTonearmAngle(-35) // Move to rest position
     await new Promise(resolve => setTimeout(resolve, 800))
     
-    // Phase 3: Fade out album (500ms)
+    // Phase 2: Retract record into album AFTER tonearm is clear (600ms - faster retraction)
+    setAnimationPhase('retracting')
+    setRecordPosition(-100)
+    await new Promise(resolve => setTimeout(resolve, 600))
+    
+    // Phase 3: Fade out album AFTER record is fully retracted (600ms)
     setAnimationPhase('fading-out')
     setAlbumOpacity(0)
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise(resolve => setTimeout(resolve, 600))
     
-    // Execute the skip action during fade
+    // Execute the skip action while album is faded out
     const success = await skipAction()
     if (!success) {
       // Reset if skip failed
@@ -154,28 +149,29 @@ export default function VinylPlayer() {
       return
     }
     
-    // Wait for new track data to load
-    await new Promise(resolve => setTimeout(resolve, 500))
+    // Wait for new track data to fully load (800ms)
+    await new Promise(resolve => setTimeout(resolve, 800))
     
-    // Phase 4: Fade in new album (500ms)
+    // Phase 4: Fade in new album (600ms)
     setAnimationPhase('fading-in')
     setAlbumOpacity(1)
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise(resolve => setTimeout(resolve, 600))
     
-    // Phase 5: Extend record from album (800ms)
+    // Phase 5: Extend record from album AFTER album is visible (800ms)
     setAnimationPhase('extending')
     setRecordPosition(0)
     await new Promise(resolve => setTimeout(resolve, 800))
     
-    // Phase 6: Lower tonearm (500ms)
+    // Phase 6: Lower tonearm AFTER record is in position (800ms)
     setAnimationPhase('lowering')
-    await new Promise(resolve => setTimeout(resolve, 500))
+    setTonearmAngle(-10) // Move to start of record
+    await new Promise(resolve => setTimeout(resolve, 800))
     
-    // Phase 7: Complete and start playback (1000ms delay)
+    // Phase 7: Wait before starting playback (1500ms delay for realism)
     setAnimationPhase('complete')
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise(resolve => setTimeout(resolve, 1500))
     
-    // Resume playback
+    // Resume playback AFTER everything is in position
     await play()
     
     setIsTransitioning(false)
@@ -339,7 +335,7 @@ export default function VinylPlayer() {
                   style={{
                     transform: `translateX(${recordPosition}%) rotate(${rotation}deg)`,
                     transition: isTransitioning 
-                      ? `transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)` 
+                      ? `transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)` 
                       : playbackState?.is_playing 
                         ? "none" 
                         : "transform 0.3s ease-out",
@@ -396,7 +392,7 @@ export default function VinylPlayer() {
                       transform: `rotate(${tonearmAngle}deg)`,
                       // Pivot point at 63.5% from left, 22.4% from top (based on SVG pivot element position)
                       transformOrigin: "63.5% 22.4%",
-                      transition: isTransitioning ? "transform 0.5s ease-in-out" : playbackState?.is_playing ? "transform 0.3s ease-out" : "transform 0.8s ease-in-out",
+                      transition: isTransitioning ? "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)" : playbackState?.is_playing ? "transform 0.3s ease-out" : "transform 0.8s ease-in-out",
                     }}
                   >
                     <Image
