@@ -54,10 +54,21 @@ export function useTheme(): UseThemeReturn {
       // Add current theme class
       root.classList.add(`theme-${theme}`)
       
-      // For album theme, apply the gradient and background URL if available
+      // For album theme, apply the gradient and determine text color
       if (theme === 'album') {
         if (albumGradient) {
           root.style.setProperty('--album-gradient', albumGradient)
+          
+          // Extract the first color from the gradient to determine text color
+          const firstColorMatch = albumGradient.match(/rgb\(\d+,\s*\d+,\s*\d+\)/)
+          if (firstColorMatch) {
+            const contrastColor = getContrastColor(firstColorMatch[0])
+            root.style.setProperty('--album-text-color', contrastColor === 'light' ? '#ffffff' : '#000000')
+            root.style.setProperty('--album-bg-color', contrastColor === 'light' ? '#000000' : '#ffffff')
+          } else {
+            root.style.setProperty('--album-text-color', '#ffffff')
+            root.style.setProperty('--album-bg-color', '#000000')
+          }
         }
         if (albumBackgroundUrl) {
           root.style.setProperty('--album-bg-url', albumBackgroundUrl)
@@ -84,15 +95,28 @@ export function useTheme(): UseThemeReturn {
     }
   }, [])
 
+  const setAlbumBackgroundUrl = useCallback((url: string | null) => {
+    setAlbumBackgroundUrlState(url)
+    if (typeof window !== 'undefined') {
+      if (url) {
+        localStorage.setItem(ALBUM_BG_URL_STORAGE_KEY, url)
+      } else {
+        localStorage.removeItem(ALBUM_BG_URL_STORAGE_KEY)
+      }
+    }
+  }, [])
+
   return {
     theme,
     setTheme,
     albumGradient,
-    setAlbumGradient
+    setAlbumGradient,
+    albumBackgroundUrl,
+    setAlbumBackgroundUrl
   }
 }
 
-// Utility function to extract colors from an image and generate a gradient
+// Utility function to extract dominant colors from an image and generate a gradient
 export async function generateAlbumGradient(imageUrl: string): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image()
@@ -107,37 +131,92 @@ export async function generateAlbumGradient(imageUrl: string): Promise<string> {
         return
       }
       
-      canvas.width = img.width
-      canvas.height = img.height
-      ctx.drawImage(img, 0, 0)
+      // Scale down for performance while maintaining quality
+      const maxSize = 100
+      const scale = Math.min(maxSize / img.width, maxSize / img.height)
+      canvas.width = img.width * scale
+      canvas.height = img.height * scale
+      
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       
       try {
-        // Sample colors from different regions of the image
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const data = imageData.data
         
-        // Sample from corners and center
-        const samples = [
-          [0, 0], // top-left
-          [canvas.width - 1, 0], // top-right
-          [0, canvas.height - 1], // bottom-left
-          [canvas.width - 1, canvas.height - 1], // bottom-right
-          [Math.floor(canvas.width / 2), Math.floor(canvas.height / 2)] // center
-        ]
+        // Extract all pixels and group by color similarity
+        const colorMap = new Map()
+        const step = 4 // Sample every 4th pixel for performance
         
-        const colors = samples.map(([x, y]) => {
-          const index = (y * canvas.width + x) * 4
-          const r = data[index]
-          const g = data[index + 1]
-          const b = data[index + 2]
-          return `rgb(${r}, ${g}, ${b})`
+        for (let i = 0; i < data.length; i += step * 4) {
+          const r = data[i]
+          const g = data[i + 1]
+          const b = data[i + 2]
+          const a = data[i + 3]
+          
+          // Skip transparent pixels
+          if (a < 128) continue
+          
+          // Group similar colors together (reduce precision)
+          const bucket = `${Math.floor(r/20)*20},${Math.floor(g/20)*20},${Math.floor(b/20)*20}`
+          colorMap.set(bucket, (colorMap.get(bucket) || 0) + 1)
+        }
+        
+        // Sort colors by frequency and get top colors
+        const sortedColors = Array.from(colorMap.entries())
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, 6)
+          .map(([color]) => {
+            const [r, g, b] = color.split(',').map(Number)
+            return { r, g, b }
+          })
+        
+        if (sortedColors.length === 0) {
+          resolve('linear-gradient(135deg, #667eea 0%, #764ba2 100%)')
+          return
+        }
+        
+        // Enhance saturation and create more vibrant colors
+        const enhancedColors = sortedColors.map(({r, g, b}) => {
+          // Convert to HSL for better color manipulation
+          const max = Math.max(r, g, b)
+          const min = Math.min(r, g, b)
+          const diff = max - min
+          const sum = max + min
+          const lightness = sum / 2
+          
+          // Boost saturation and adjust lightness for better gradients
+          let newR = r, newG = g, newB = b
+          
+          if (diff > 0) {
+            const saturation = diff / (sum > 255 ? 2 - sum / 255 : sum / 255)
+            const boostedSat = Math.min(saturation * 1.4, 1)
+            
+            // Enhance the most prominent color channel
+            if (r >= g && r >= b) {
+              newR = Math.min(255, r * 1.2)
+            } else if (g >= r && g >= b) {
+              newG = Math.min(255, g * 1.2)
+            } else {
+              newB = Math.min(255, b * 1.2)
+            }
+          }
+          
+          return `rgb(${Math.round(newR)}, ${Math.round(newG)}, ${Math.round(newB)})`
         })
         
-        // Create a gradient using the extracted colors
-        const gradient = `linear-gradient(135deg, ${colors[0]} 0%, ${colors[4]} 50%, ${colors[3]} 100%)`
+        // Create a multi-stop gradient with the extracted colors
+        let gradient
+        if (enhancedColors.length >= 3) {
+          gradient = `linear-gradient(135deg, ${enhancedColors[0]} 0%, ${enhancedColors[1]} 40%, ${enhancedColors[2]} 100%)`
+        } else if (enhancedColors.length === 2) {
+          gradient = `linear-gradient(135deg, ${enhancedColors[0]} 0%, ${enhancedColors[1]} 100%)`
+        } else {
+          gradient = `linear-gradient(135deg, ${enhancedColors[0]} 0%, ${enhancedColors[0]} 100%)`
+        }
+        
         resolve(gradient)
       } catch (error) {
-        // Fallback gradient if color extraction fails
+        console.error('Error extracting colors:', error)
         resolve('linear-gradient(135deg, #667eea 0%, #764ba2 100%)')
       }
     }
@@ -148,4 +227,32 @@ export async function generateAlbumGradient(imageUrl: string): Promise<string> {
     
     img.src = imageUrl
   })
+}
+
+// Utility function to determine if a color is light or dark
+export function getContrastColor(backgroundColor: string): 'light' | 'dark' {
+  // Extract RGB values from various color formats
+  let r, g, b
+  
+  if (backgroundColor.startsWith('rgb')) {
+    const match = backgroundColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+    if (match) {
+      r = parseInt(match[1])
+      g = parseInt(match[2])
+      b = parseInt(match[3])
+    }
+  } else if (backgroundColor.startsWith('#')) {
+    const hex = backgroundColor.slice(1)
+    r = parseInt(hex.substr(0, 2), 16)
+    g = parseInt(hex.substr(2, 2), 16)
+    b = parseInt(hex.substr(4, 2), 16)
+  }
+  
+  if (r === undefined || g === undefined || b === undefined) {
+    return 'dark' // Default to dark text
+  }
+  
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.5 ? 'dark' : 'light'
 }
