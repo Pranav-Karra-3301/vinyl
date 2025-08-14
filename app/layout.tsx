@@ -10,6 +10,28 @@ export const metadata: Metadata = {
   icons: {
     icon: '/record.svg',
   },
+  openGraph: {
+    title: 'Vinyl - Spotify Record Player',
+    description: 'A beautiful vinyl record player for Spotify',
+    url: 'https://music.pranavkarra.me',
+    siteName: 'Vinyl',
+    images: [
+      {
+        url: '/placeholder_album.png',
+        width: 800,
+        height: 800,
+        alt: 'Vinyl Record Player',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Vinyl - Spotify Record Player',
+    description: 'A beautiful vinyl record player for Spotify',
+    images: ['/placeholder_album.png'],
+  },
 }
 
 export default function RootLayout({

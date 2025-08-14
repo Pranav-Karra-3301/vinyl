@@ -76,6 +76,16 @@
   }
 }
 
+/* Spin animation for record */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Marquee animation for long text */
 @keyframes marquee {
   0% {

@@ -422,10 +422,59 @@ export default function VinylPlayer() {
 
   if (!isDesktop) {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center p-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">Open on desktop.</h1>
-          <p className="text-muted-foreground text-lg">I have a life. No mobile optimization here.</p>
+      <div className="fixed inset-0 flex items-center justify-center p-6" style={{ background: 'var(--vinyl-bg)' }}>
+        <div className="text-center max-w-sm mx-auto">
+          {/* Rotating record icon */}
+          <div className="relative w-32 h-32 mx-auto mb-8">
+            <Image
+              src="/record.svg"
+              alt="Vinyl Record"
+              fill
+              className="object-contain animate-spin-slow"
+              style={{
+                animation: 'spin 20s linear infinite',
+              }}
+            />
+          </div>
+          
+          {/* Title */}
+          <h1 className="text-3xl font-bold mb-4 text-foreground">
+            Desktop Experience Only
+          </h1>
+          
+          {/* Status badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-sm font-medium mb-6">
+            <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+            Mobile Beta
+          </div>
+          
+          {/* Description */}
+          <p className="text-muted-foreground text-base mb-6 leading-relaxed">
+            For the best experience, open this on your desktop browser.
+          </p>
+          
+          {/* Device suggestions */}
+          <div className="space-y-3 text-sm">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span className="font-medium">Best on Desktop</span>
+            </div>
+            
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              <span>iPad support coming soon</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">Beta</span>
+            </div>
+          </div>
+          
+          {/* Footer note */}
+          <p className="text-xs text-muted-foreground mt-8 opacity-60">
+            Mobile version is still buggy but functional
+          </p>
         </div>
       </div>
     )
