@@ -184,22 +184,16 @@ export default function VinylPlayer() {
             {/* Album cover - scales with viewport */}
             <div className="relative flex-shrink-0 order-2 xl:order-1 w-full xl:w-auto h-[40vh] xl:h-[60vh] max-h-[500px]">
               <div className="relative h-full aspect-square mx-auto">
-                {currentTrack ? (
-                  <Image
-                    src={currentTrack.album.images[0]?.url || "/placeholder.svg"}
-                    alt="Album Cover"
-                    fill
-                    className="object-cover rounded-lg shadow-2xl"
-                    style={{
-                      filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.3))",
-                    }}
-                    priority
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-200 rounded-lg shadow-2xl flex items-center justify-center">
-                    <Music className="w-20 h-20 text-gray-400" />
-                  </div>
-                )}
+                <Image
+                  src={currentTrack?.album.images[0]?.url || "/placeholder_album.png"}
+                  alt="Album Cover"
+                  fill
+                  className="object-cover rounded-lg shadow-2xl"
+                  style={{
+                    filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.3))",
+                  }}
+                  priority
+                />
               </div>
             </div>
 
@@ -294,7 +288,7 @@ export default function VinylPlayer() {
             <>
               <div className="relative w-12 h-12 rounded overflow-hidden shadow-sm">
                 <Image
-                  src={currentTrack.album.images[0]?.url || "/placeholder.svg"}
+                  src={currentTrack.album.images[0]?.url || "/placeholder_album.png"}
                   alt="Album Thumbnail"
                   fill
                   className="object-cover"
@@ -307,9 +301,19 @@ export default function VinylPlayer() {
               </div>
             </>
           ) : (
-            <div className="text-sm text-gray-500">
-              {isAuthenticated ? "No track playing" : "Sign in to see what's playing"}
-            </div>
+            <>
+              <div className="relative w-12 h-12 rounded overflow-hidden shadow-sm">
+                <Image
+                  src="/placeholder_album.png"
+                  alt="Album Placeholder"
+                  fill
+                  className="object-cover opacity-50"
+                />
+              </div>
+              <div className="text-sm text-gray-500">
+                {isAuthenticated ? "No track playing" : "Sign in to see what's playing"}
+              </div>
+            </>
           )}
         </div>
 
