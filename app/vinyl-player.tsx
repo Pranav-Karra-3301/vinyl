@@ -123,9 +123,18 @@ export default function VinylPlayer() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
   }
 
+  // Check if animations are enabled via environment variable
+  const animationsEnabled = process.env.NEXT_PUBLIC_ANIMATION !== 'FALSE'
+
   // Animation sequence for track transitions
   const runTrackTransition = useCallback(async (skipAction: () => Promise<boolean>) => {
     if (isTransitioning) return
+    
+    // If animations are disabled, just skip immediately
+    if (!animationsEnabled) {
+      const success = await skipAction()
+      return
+    }
     
     setIsTransitioning(true)
     
@@ -186,7 +195,7 @@ export default function VinylPlayer() {
     
     setIsTransitioning(false)
     setAnimationPhase('idle')
-  }, [isTransitioning, play, pause])
+  }, [isTransitioning, play, pause, animationsEnabled])
 
   const handlePlayPause = async () => {
     if (isTransitioning) return
@@ -416,26 +425,61 @@ export default function VinylPlayer() {
                     priority
                   />
                   
-                  {/* Center label overlay - scales proportionally */}
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[32%] h-[32%] rounded-full bg-white shadow-lg flex flex-col items-center justify-center text-center p-2">
+                  {/* Center label overlay - blurred dark album cover with curved text */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[32%] h-[32%] rounded-full shadow-lg overflow-hidden">
                     {displayedTrack || currentTrack ? (
                       <>
-                        <div className="text-[0.7rem] lg:text-xs font-semibold text-gray-900 mb-1 truncate w-full">
-                          {(displayedTrack || currentTrack).name}
+                        {/* Blurred dark album cover background */}
+                        <div className="absolute inset-0">
+                          <Image
+                            src={(displayedTrack || currentTrack).album.images[0]?.url || "/placeholder_album.png"}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            style={{
+                              filter: "blur(8px) brightness(0.3)",
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/40" />
                         </div>
-                        <div className="text-[0.6rem] lg:text-[10px] text-gray-600 truncate w-full">
-                          {(displayedTrack || currentTrack).artists[0].name}
-                        </div>
-                        <div className="text-[0.6rem] lg:text-[10px] text-gray-500 truncate w-full">
-                          {(displayedTrack || currentTrack).album.name}
-                        </div>
-                        <div className="text-[0.5rem] lg:text-[9px] text-gray-400 mt-1">
-                          {(displayedTrack || currentTrack).album.release_date?.split('-')[0]}
+                        
+                        {/* Content overlay */}
+                        <div className="relative h-full w-full flex items-center justify-center">
+                          {/* Curved song title text */}
+                          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
+                            <defs>
+                              <path
+                                id="circle-path"
+                                d="M 50,50 m -35,0 a 35,35 0 1,1 70,0 a 35,35 0 1,1 -70,0"
+                              />
+                            </defs>
+                            <text className="fill-white uppercase" style={{ fontSize: "5px", letterSpacing: "0.5px", fontWeight: "600" }}>
+                              <textPath href="#circle-path" startOffset="50%" textAnchor="middle">
+                                {(() => {
+                                  const title = (displayedTrack || currentTrack).name.toUpperCase();
+                                  // If title is too long, truncate and add ellipsis
+                                  return title.length > 40 ? title.substring(0, 37) + "..." : title;
+                                })()}
+                              </textPath>
+                            </text>
+                          </svg>
+                          
+                          {/* Center content - Artist and Year */}
+                          <div className="text-center z-10">
+                            <div className="text-[0.6rem] lg:text-[10px] font-semibold text-white uppercase tracking-wider">
+                              {(displayedTrack || currentTrack).artists[0].name}
+                            </div>
+                            <div className="text-[0.5rem] lg:text-[9px] text-white/80 uppercase mt-0.5">
+                              {(displayedTrack || currentTrack).album.release_date?.split('-')[0]}
+                            </div>
+                          </div>
                         </div>
                       </>
                     ) : (
-                      <div className="text-[0.6rem] lg:text-[10px] text-gray-400">
-                        {isAuthenticated ? "No track playing" : "Sign in to play"}
+                      <div className="bg-gray-800 h-full w-full flex items-center justify-center">
+                        <div className="text-[0.6rem] lg:text-[10px] text-gray-400">
+                          {isAuthenticated ? "No track playing" : "Sign in to play"}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -482,9 +526,7 @@ export default function VinylPlayer() {
 
       {/* Bottom control bar */}
       <div className="fixed bottom-0 left-0 right-0 h-18 px-6 flex items-center justify-between" style={{
-        backgroundColor: 'var(--card)',
-        borderTop: '1px solid var(--border)',
-        backdropFilter: 'blur(8px)',
+        background: 'var(--card)',
         color: 'var(--card-foreground)'
       }}>
         {/* Left: Track info */}
