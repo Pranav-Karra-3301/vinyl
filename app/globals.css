@@ -53,6 +53,27 @@
   -moz-user-drag: none;
   -o-user-drag: none;
   user-drag: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Safari/iPad specific fixes */
+@supports (-webkit-touch-callout: none) {
+  /* Safari only CSS */
+  .no-select {
+    -webkit-touch-callout: none;
+  }
+  
+  /* Fix 3D transforms for Safari */
+  * {
+    -webkit-transform-style: preserve-3d;
+    -webkit-backface-visibility: hidden;
+  }
+  
+  /* Prevent Safari zoom on double tap */
+  button, input, select, textarea {
+    touch-action: manipulation;
+  }
 }
 
 /* Marquee animation for long text */

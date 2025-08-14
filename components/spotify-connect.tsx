@@ -26,9 +26,10 @@ interface SpotifyConnectProps {
   currentDevice: Device | null
   onTransferPlayback: (deviceId: string) => Promise<boolean>
   isPremium: boolean
+  theme?: string
 }
 
-export function SpotifyConnect({ devices, currentDevice, onTransferPlayback, isPremium }: SpotifyConnectProps) {
+export function SpotifyConnect({ devices, currentDevice, onTransferPlayback, isPremium, theme }: SpotifyConnectProps) {
   const [isTransferring, setIsTransferring] = useState(false)
   
   const getDeviceIcon = (type: string) => {
@@ -79,7 +80,10 @@ export function SpotifyConnect({ devices, currentDevice, onTransferPlayback, isP
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="px-4 py-2 rounded-full bg-green-500/20 hover:bg-green-500/30 backdrop-blur-md border border-green-500/30 text-green-100 flex items-center gap-2 transition-all"
+            className="px-4 py-2 rounded-full bg-green-500/20 hover:bg-green-500/30 backdrop-blur-md border border-green-500/30 flex items-center gap-2 transition-all"
+            style={{
+              color: theme === 'white' ? '#14532d' : '#dcfce7' // Dark green for light mode, light green for others
+            }}
           >
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             <span className="text-sm font-medium">

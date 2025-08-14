@@ -304,8 +304,8 @@ export default function VinylPlayer() {
     runTrackTransition(skipToPrevious)
   }, [runTrackTransition, skipToPrevious])
   
-  // Handle needle dragging for play/pause
-  const handleNeedleDragStart = (e: React.MouseEvent) => {
+  // Handle needle dragging for play/pause (mouse and touch)
+  const handleNeedleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault()
     setIsDraggingNeedle(true)
   }
@@ -440,6 +440,7 @@ export default function VinylPlayer() {
           currentDevice={playbackState.device}
           onTransferPlayback={transferPlayback}
           isPremium={isPremium}
+          theme={theme}
         />
       )}
       
@@ -559,12 +560,12 @@ export default function VinylPlayer() {
       </div>
 
       {/* Main turntable area with padding */}
-      <div className="flex-1 flex items-center justify-center p-12 lg:p-16 xl:p-20 no-select">
-        <div className="w-full h-full max-w-[1600px] max-h-[800px] relative no-select">
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-8 xl:p-12 no-select">
+        <div className="w-full h-full max-w-[1800px] max-h-[900px] relative no-select">
           {/* Responsive container - side by side when wide, stacked when narrow */}
-          <div className="flex flex-col xl:flex-row items-center justify-center gap-8 xl:gap-16 h-full relative z-10">
+          <div className="flex flex-col xl:flex-row items-center justify-center gap-6 xl:gap-12 h-full relative z-10">
             {/* Album cover - scales with viewport */}
-            <div className="relative flex-shrink-0 order-2 xl:order-1 w-full xl:w-auto h-[40vh] xl:h-[60vh] max-h-[500px]">
+            <div className="relative flex-shrink-0 order-2 xl:order-1 w-full xl:w-auto h-[50vh] xl:h-[75vh] max-h-[650px]">
               <div 
                 className="relative h-full aspect-square mx-auto overflow-hidden cursor-pointer no-select"
                 onMouseEnter={() => setAlbumHover(true)}
@@ -595,7 +596,7 @@ export default function VinylPlayer() {
             </div>
 
             {/* Vinyl record and tonearm container - scales with viewport */}
-            <div className="relative flex-shrink-0 order-1 xl:order-2 w-full xl:w-auto h-[40vh] xl:h-[60vh] max-h-[500px]">
+            <div className="relative flex-shrink-0 order-1 xl:order-2 w-full xl:w-auto h-[50vh] xl:h-[75vh] max-h-[650px]">
               <div className="relative h-full aspect-square mx-auto">
                 {/* Vinyl record using record.svg */}
                 <div
@@ -725,6 +726,7 @@ export default function VinylPlayer() {
                         zIndex: 10,
                       }}
                       onMouseDown={handleNeedleDragStart}
+                      onTouchStart={handleNeedleDragStart}
                       title="Drag needle to play/pause"
                     />
                   </div>
