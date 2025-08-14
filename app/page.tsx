@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, SkipBack, SkipForward, Volume2, MoreHorizontal, Music, LogOut } from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, Volume2, MoreHorizontal, LogOut, Music } from "lucide-react"
 import Image from "next/image"
 import { useSpotify } from "@/hooks/use-spotify"
 import {
@@ -166,11 +166,17 @@ export default function VinylPlayer() {
         ) : (
           <Button 
             asChild 
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-black hover:bg-gray-900 text-white px-6 py-2"
           >
-            <a href="/api/auth/spotify/login">
-              <Music className="mr-2 h-4 w-4" />
-              Sign in with Spotify
+            <a href="/api/auth/spotify/login" className="flex items-center gap-3">
+              <Image
+                src="/Spotify_Primary_Logo_RGB_Green.png"
+                alt="Spotify"
+                width={20}
+                height={20}
+                className="object-contain"
+              />
+              <span>Sign in with Spotify</span>
             </a>
           </Button>
         )}
