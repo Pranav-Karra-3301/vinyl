@@ -9,6 +9,8 @@ import { useSpotify } from "@/hooks/use-spotify"
 import { useWebPlayback } from "@/hooks/use-web-playback"
 import { useDynamicTitle } from "@/hooks/use-dynamic-title"
 import { RecentItemsPopup } from "@/components/recent-items-popup"
+import { ThemeSelectorPopup } from "@/components/theme-selector-popup"
+import { useTheme, generateAlbumGradient } from "@/hooks/use-theme"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +56,9 @@ export default function VinylPlayer() {
 
   // Web Playback SDK for premium users
   const { playUri, isReady: isWebPlaybackReady, setVolume: setWebVolume, volume: webVolume } = useWebPlayback(accessToken, isPremium)
+
+  // Theme management
+  const { theme, setTheme, albumGradient, setAlbumGradient } = useTheme()
 
   // Dynamic title and favicon based on current track
   useDynamicTitle({
@@ -268,10 +273,24 @@ export default function VinylPlayer() {
     }
   }, [currentTrack, previousTrackId, isTransitioning, runTrackTransition])
 
+  // Generate album gradient when theme is 'album' and track changes
+  useEffect(() => {
+    if (theme === 'album' && currentTrack?.album?.images?.[0]?.url) {
+      generateAlbumGradient(currentTrack.album.images[0].url)
+        .then(gradient => {
+          setAlbumGradient(gradient)
+        })
+        .catch(() => {
+          // Fallback gradient on error
+          setAlbumGradient('linear-gradient(135deg, #667eea 0%, #764ba2 100%)')
+        })
+    }
+  }, [theme, currentTrack?.album?.images, setAlbumGradient])
+
   // Show loading state when checking for playback
   if (isLoading && isAuthenticated) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-stone-50 to-stone-100 flex items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center" style={{ background: 'var(--vinyl-bg)' }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-gray-600">Connecting to Spotify...</p>
@@ -292,7 +311,7 @@ export default function VinylPlayer() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--vinyl-bg)' }}>
       {/* Header with Spotify Auth */}
       <div className="absolute top-4 right-4 z-50">
         {isAuthenticated ? (
@@ -462,7 +481,12 @@ export default function VinylPlayer() {
       </div>
 
       {/* Bottom control bar */}
-      <div className="fixed bottom-0 left-0 right-0 h-18 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-6 flex items-center justify-between">
+      <div className="fixed bottom-0 left-0 right-0 h-18 px-6 flex items-center justify-between" style={{
+        backgroundColor: 'var(--card)',
+        borderTop: '1px solid var(--border)',
+        backdropFilter: 'blur(8px)',
+        color: 'var(--card-foreground)'
+      }}>
         {/* Left: Track info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
           {currentTrack ? (
@@ -600,9 +624,164 @@ export default function VinylPlayer() {
           {isPremium && isWebPlaybackReady && (
             <RecentItemsPopup onPlay={playUri} isPremium={isPremium} />
           )}
-          <Button variant="ghost" size="sm">
-            <MoreHorizontal className="w-4 h-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80 p-0">
+              <div className="p-4">
+                <h3 className="font-semibold text-sm mb-3">Choose Theme</h3>
+                <div className="grid grid-cols-1 gap-3">
+                  {[
+                    { id: 'white', name: 'Light', preview: () => (
+                      <div className="w-full h-12 bg-white border border-gray-200 rounded-md overflow-hidden">
+                        <div className="h-2 bg-gray-50 border-b border-gray-100"></div>
+                        <div className="p-1.5 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-4 h-4 bg-gray-100 rounded"></div>
+                            <div className="flex-1 space-y-0.5">
+                              <div className="h-1.5 bg-gray-200 rounded w-3/4"></div>
+                              <div className="h-1 bg-gray-100 rounded w-1/2"></div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center gap-0.5 mt-1">
+                            <div className="w-2.5 h-2.5 bg-gray-300 rounded-full"></div>
+                            <div className="w-2.5 h-2.5 bg-gray-200 rounded-full"></div>
+                            <div className="w-2.5 h-2.5 bg-gray-200 rounded-full"></div>
+                          </div>
+                        </div>
+                      </div>
+                    )},
+                    { id: 'dark', name: 'Dark', preview: () => (
+                      <div className="w-full h-12 rounded-md overflow-hidden" style={{ backgroundColor: '#262624', border: '1px solid #3a3a37' }}>
+                        <div className="h-2 border-b" style={{ backgroundColor: '#2d2d2a', borderColor: '#3a3a37' }}></div>
+                        <div className="p-1.5 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#333330' }}></div>
+                            <div className="flex-1 space-y-0.5">
+                              <div className="h-1.5 rounded w-3/4" style={{ backgroundColor: '#f5f5f5' }}></div>
+                              <div className="h-1 rounded w-1/2" style={{ backgroundColor: '#b3b3b3' }}></div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center gap-0.5 mt-1">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#f5f5f5' }}></div>
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#333330' }}></div>
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#333330' }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )},
+                    { id: 'amoled', name: 'AMOLED', preview: () => (
+                      <div className="w-full h-12 bg-black border border-gray-800 rounded-md overflow-hidden">
+                        <div className="h-2 bg-black border-b border-gray-800"></div>
+                        <div className="p-1.5 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-4 h-4 bg-gray-900 rounded"></div>
+                            <div className="flex-1 space-y-0.5">
+                              <div className="h-1.5 bg-gray-800 rounded w-3/4"></div>
+                              <div className="h-1 bg-gray-900 rounded w-1/2"></div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center gap-0.5 mt-1">
+                            <div className="w-2.5 h-2.5 bg-gray-700 rounded-full"></div>
+                            <div className="w-2.5 h-2.5 bg-gray-800 rounded-full"></div>
+                            <div className="w-2.5 h-2.5 bg-gray-800 rounded-full"></div>
+                          </div>
+                        </div>
+                      </div>
+                    )},
+                    { id: 'album', name: 'Album', preview: () => (
+                      <div className="w-full h-12 rounded-md overflow-hidden relative">
+                        {currentTrack?.album?.images?.[0]?.url ? (
+                          <>
+                            <div 
+                              className="absolute inset-0 bg-gradient-to-br from-purple-500/80 via-pink-500/80 to-blue-500/80"
+                              style={{
+                                backgroundImage: `linear-gradient(135deg, rgba(139, 69, 19, 0.8), rgba(160, 82, 45, 0.8), rgba(210, 180, 140, 0.8))`,
+                              }}
+                            ></div>
+                            <div className="relative z-10 h-2 bg-black/20 border-b border-white/20"></div>
+                            <div className="relative z-10 p-1.5 space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-4 h-4 bg-white/20 rounded border border-white/30"></div>
+                                <div className="flex-1 space-y-0.5">
+                                  <div className="h-1.5 bg-white/30 rounded w-3/4"></div>
+                                  <div className="h-1 bg-white/20 rounded w-1/2"></div>
+                                </div>
+                              </div>
+                              <div className="flex justify-center gap-0.5 mt-1">
+                                <div className="w-2.5 h-2.5 bg-white/40 rounded-full"></div>
+                                <div className="w-2.5 h-2.5 bg-white/20 rounded-full"></div>
+                                <div className="w-2.5 h-2.5 bg-white/20 rounded-full"></div>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500"></div>
+                            <div className="relative z-10 h-2 bg-black/20 border-b border-white/20"></div>
+                            <div className="relative z-10 p-1.5 space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-4 h-4 bg-white/20 rounded border border-white/30"></div>
+                                <div className="flex-1 space-y-0.5">
+                                  <div className="h-1.5 bg-white/30 rounded w-3/4"></div>
+                                  <div className="h-1 bg-white/20 rounded w-1/2"></div>
+                                </div>
+                              </div>
+                              <div className="flex justify-center gap-0.5 mt-1">
+                                <div className="w-2.5 h-2.5 bg-white/40 rounded-full"></div>
+                                <div className="w-2.5 h-2.5 bg-white/20 rounded-full"></div>
+                                <div className="w-2.5 h-2.5 bg-white/20 rounded-full"></div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )},
+                    { id: 'orange', name: 'Orange', preview: () => (
+                      <div className="w-full h-12 rounded-md overflow-hidden" style={{ backgroundColor: '#fb8500' }}>
+                        <div className="h-2 border-b" style={{ backgroundColor: '#f77f00', borderColor: '#f77f00' }}></div>
+                        <div className="p-1.5 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#ffb703' }}></div>
+                            <div className="flex-1 space-y-0.5">
+                              <div className="h-1.5 rounded w-3/4" style={{ backgroundColor: '#241E1C' }}></div>
+                              <div className="h-1 rounded w-1/2" style={{ backgroundColor: '#3D342F' }}></div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center gap-0.5 mt-1">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#241E1C' }}></div>
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3D342F' }}></div>
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3D342F' }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  ].map((themeOption) => (
+                    <button
+                      key={themeOption.id}
+                      onClick={() => setTheme(themeOption.id as any)}
+                      className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors text-left group relative"
+                    >
+                      <div className="w-16 h-12 flex-shrink-0">
+                        {themeOption.preview()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{themeOption.name}</p>
+                          {theme === themeOption.id && (
+                            <div className="w-4 h-4 text-green-600">✓</div>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
