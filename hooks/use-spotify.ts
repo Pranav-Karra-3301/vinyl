@@ -44,6 +44,7 @@ export function useSpotify() {
   const [queue, setQueue] = useState<SpotifyQueue>({ next: null, previous: null, fullQueue: [] })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
 
   // Fetch queue data
   const fetchQueue = useCallback(async () => {
@@ -60,16 +61,23 @@ export function useSpotify() {
     return null
   }, [])
 
-  // Fetch user data
+  // Fetch user data and token
   const fetchUser = useCallback(async () => {
     try {
       const response = await fetch('/api/spotify/me')
       if (response.ok) {
         const userData = await response.json()
         setUser(userData)
+        // Get the access token from cookies
+        const tokenResponse = await fetch('/api/spotify/token')
+        if (tokenResponse.ok) {
+          const { token } = await tokenResponse.json()
+          setAccessToken(token)
+        }
         return userData
       } else if (response.status === 401) {
         setUser(null)
+        setAccessToken(null)
       }
     } catch (err) {
       console.error('Error fetching user:', err)
@@ -248,6 +256,7 @@ export function useSpotify() {
     queue,
     isLoading,
     error,
+    accessToken,
     isAuthenticated: !!user,
     isPremium: user?.product === 'premium',
     play,

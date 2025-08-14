@@ -6,6 +6,8 @@ import { Slider } from "@/components/ui/slider"
 import { Play, Pause, SkipBack, SkipForward, Volume2, MoreHorizontal, LogOut, Music } from "lucide-react"
 import Image from "next/image"
 import { useSpotify } from "@/hooks/use-spotify"
+import { useWebPlayback } from "@/hooks/use-web-playback"
+import { RecentItemsPopup } from "@/components/recent-items-popup"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +31,7 @@ export default function VinylPlayer() {
     queue,
     isLoading,
     error,
+    accessToken,
     isAuthenticated,
     isPremium,
     play,
@@ -37,6 +40,9 @@ export default function VinylPlayer() {
     skipToPrevious,
     logout
   } = useSpotify()
+
+  // Web Playback SDK for premium users
+  const { playUri, isReady: isWebPlaybackReady } = useWebPlayback(accessToken, isPremium)
 
   // Check if desktop on mount
   useEffect(() => {
@@ -463,6 +469,9 @@ export default function VinylPlayer() {
                 disabled={!isPremium}
               />
             </div>
+          )}
+          {isPremium && isWebPlaybackReady && (
+            <RecentItemsPopup onPlay={playUri} isPremium={isPremium} />
           )}
           <Button variant="ghost" size="sm">
             <MoreHorizontal className="w-4 h-4" />
