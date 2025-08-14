@@ -185,13 +185,21 @@ export function useSpotify() {
     }
   }, [])
 
-  // Initial load
+  // Initial load - immediately check if something is playing
   useEffect(() => {
     const init = async () => {
       setIsLoading(true)
       const userData = await fetchUser()
       if (userData) {
-        await fetchPlaybackState()
+        // Immediately fetch playback state when user is authenticated
+        const playback = await fetchPlaybackState()
+        // If nothing is playing but user just signed in, give them a moment to start playing
+        if (!playback?.is_playing) {
+          // Check again after 2 seconds in case they just opened Spotify
+          setTimeout(async () => {
+            await fetchPlaybackState()
+          }, 2000)
+        }
       }
       setIsLoading(false)
     }
