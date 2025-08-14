@@ -128,12 +128,12 @@ export default function VinylPlayer() {
     setTonearmAngle(-35) // Move to rest position
     await new Promise(resolve => setTimeout(resolve, 800))
     
-    // Phase 2: Retract record into album AFTER tonearm is clear (600ms - faster retraction)
+    // Phase 2: Retract record COMPLETELY under album FAST (300ms)
     setAnimationPhase('retracting')
-    setRecordPosition(-100)
-    await new Promise(resolve => setTimeout(resolve, 600))
+    setRecordPosition(-150) // Move further to be completely hidden
+    await new Promise(resolve => setTimeout(resolve, 350))
     
-    // Phase 3: Fade out album AFTER record is fully retracted (600ms)
+    // Phase 3: Fade out album ONLY AFTER record is completely hidden (600ms)
     setAnimationPhase('fading-out')
     setAlbumOpacity(0)
     await new Promise(resolve => setTimeout(resolve, 600))
@@ -152,24 +152,24 @@ export default function VinylPlayer() {
     // Wait for new track data to fully load (800ms)
     await new Promise(resolve => setTimeout(resolve, 800))
     
-    // Phase 4: Fade in new album (600ms)
+    // Phase 4: Fade in new album FIRST (600ms)
     setAnimationPhase('fading-in')
     setAlbumOpacity(1)
     await new Promise(resolve => setTimeout(resolve, 600))
     
-    // Phase 5: Extend record from album AFTER album is visible (800ms)
+    // Phase 5: Extend record from COMPLETELY under album FAST (300ms)
     setAnimationPhase('extending')
     setRecordPosition(0)
-    await new Promise(resolve => setTimeout(resolve, 800))
+    await new Promise(resolve => setTimeout(resolve, 350))
     
     // Phase 6: Lower tonearm AFTER record is in position (800ms)
     setAnimationPhase('lowering')
     setTonearmAngle(-10) // Move to start of record
     await new Promise(resolve => setTimeout(resolve, 800))
     
-    // Phase 7: Wait before starting playback (1500ms delay for realism)
+    // Phase 7: Wait 10 SECONDS before starting playback for dramatic effect
     setAnimationPhase('complete')
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    await new Promise(resolve => setTimeout(resolve, 10000))
     
     // Resume playback AFTER everything is in position
     await play()
@@ -335,7 +335,7 @@ export default function VinylPlayer() {
                   style={{
                     transform: `translateX(${recordPosition}%) rotate(${rotation}deg)`,
                     transition: isTransitioning 
-                      ? `transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)` 
+                      ? `transform 0.35s cubic-bezier(0.4, 0, 0.6, 1)` 
                       : playbackState?.is_playing 
                         ? "none" 
                         : "transform 0.3s ease-out",
