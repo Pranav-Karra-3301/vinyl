@@ -59,6 +59,26 @@ export default function VinylPlayer() {
 
   // Theme management
   const { theme, setTheme, albumGradient, setAlbumGradient } = useTheme()
+  
+  // System status checks
+  const getSystemStatus = () => {
+    const checks = {
+      spotifyClientId: !!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || !!process.env.SPOTIFY_CLIENT_ID,
+      spotifyClientSecret: !!process.env.SPOTIFY_CLIENT_SECRET, // This won't be available in browser but we can check
+      authenticated: isAuthenticated,
+      themeCache: typeof window !== 'undefined' && !!localStorage.getItem('vinyl-theme'),
+      webPlayback: isPremium && isWebPlaybackReady,
+    }
+    
+    // Determine overall status
+    const critical = !checks.spotifyClientId || !checks.spotifyClientSecret
+    const warnings = !checks.authenticated || (isPremium && !checks.webPlayback)
+    
+    return {
+      checks,
+      overall: critical ? 'error' : warnings ? 'warning' : 'success'
+    }
+  }
 
   // Dynamic title and favicon based on current track
   useDynamicTitle({
@@ -337,10 +357,67 @@ export default function VinylPlayer() {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-72">
               <DropdownMenuItem disabled className="text-xs text-muted-foreground">
                 {user?.email}
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              
+              {/* System Status Section */}
+              <div className="px-2 py-1.5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold">System Status</span>
+                  <div className="flex items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${
+                      getSystemStatus().overall === 'success' ? 'bg-green-500 animate-pulse' :
+                      getSystemStatus().overall === 'warning' ? 'bg-yellow-500 animate-pulse' :
+                      'bg-red-500 animate-pulse'
+                    }`} />
+                    <span className="text-xs text-muted-foreground">
+                      {getSystemStatus().overall === 'success' ? 'All systems go' :
+                       getSystemStatus().overall === 'warning' ? 'Minor issues' :
+                       'Critical error'}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Individual status checks */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Spotify Client ID</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                      getSystemStatus().checks.spotifyClientId ? 'bg-green-500' : 'bg-red-500'
+                    }`} />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Spotify Client Secret</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                      getSystemStatus().checks.spotifyClientSecret ? 'bg-green-500' : 'bg-red-500'
+                    }`} />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Authentication</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                      getSystemStatus().checks.authenticated ? 'bg-green-500' : 'bg-yellow-500'
+                    }`} />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Theme Cache</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                      getSystemStatus().checks.themeCache ? 'bg-green-500' : 'bg-yellow-500'
+                    }`} />
+                  </div>
+                  {isPremium && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Web Playback SDK</span>
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        getSystemStatus().checks.webPlayback ? 'bg-green-500' : 'bg-yellow-500'
+                      }`} />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
               <DropdownMenuSeparator />
               {!isPremium && (
                 <>
