@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize'
-const REDIRECT_URI =
-  process.env.NODE_ENV === 'production'
-    ? 'https://music.pranavkarra.me/api/auth/spotify/callback'
-    : 'http://localhost:3000/api/auth/spotify/callback'
+const REDIRECT_URI = 'https://vinyl.pranavkarra.me/api/auth/spotify/callback'
 
 // Scopes needed for playback control and reading user data
 const SCOPES = [

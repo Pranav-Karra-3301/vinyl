@@ -189,22 +189,39 @@ export function CredentialSetup({ onCredentialsSaved, showReset = false }: Crede
               </p>
             </div>
             
-            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-3">
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="understand"
                   checked={understand}
                   onCheckedChange={(checked) => setUnderstand(checked as boolean)}
-                  className="mt-1"
+                  className="mt-0.5"
                 />
-                <Label htmlFor="understand" className="text-sm cursor-pointer">
-                  I understand that:
-                  <ul className="mt-2 space-y-1 text-muted-foreground font-normal">
-                    <li>• Credentials are stored locally in my browser</li>
-                    <li>• Clearing browser data will require re-entering them</li>
-                    <li>• I should never share my Client Secret with anyone</li>
-                  </ul>
-                </Label>
+                <div className="flex-1">
+                  <Label htmlFor="understand" className="text-sm font-medium cursor-pointer">
+                    I understand and acknowledge:
+                  </Label>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 mt-1.5 flex-shrink-0" />
+                      <p className="text-sm text-muted-foreground">
+                        Credentials are stored locally in your browser only
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 mt-1.5 flex-shrink-0" />
+                      <p className="text-sm text-muted-foreground">
+                        Clearing browser data will require re-entering credentials
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 mt-1.5 flex-shrink-0" />
+                      <p className="text-sm text-muted-foreground">
+                        Your Client Secret should never be shared with anyone
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             

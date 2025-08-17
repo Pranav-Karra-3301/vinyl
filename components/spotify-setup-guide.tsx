@@ -13,9 +13,7 @@ interface SpotifySetupGuideProps {
 export function SpotifySetupGuide({ open, onOpenChange }: SpotifySetupGuideProps) {
   const [copiedUrl, setCopiedUrl] = useState(false)
   
-  const redirectUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/auth/spotify/callback'
-    : 'https://music.pranavkarra.me/api/auth/spotify/callback'
+  const redirectUrl = 'https://vinyl.pranavkarra.me/api/auth/spotify/callback'
   
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(redirectUrl)
@@ -116,9 +114,13 @@ export function SpotifySetupGuide({ open, onOpenChange }: SpotifySetupGuideProps
               </div>
               <ul className="text-sm text-muted-foreground ml-11 space-y-2">
                 <li>• Check the box for <strong>Web API</strong></li>
+                <li>• Check the box for <strong>Web Playback SDK</strong> (required for Premium accounts)</li>
                 <li>• Accept the Terms of Service</li>
                 <li>• Click "Save"</li>
               </ul>
+              <p className="text-sm text-amber-600 dark:text-amber-500 ml-11">
+                ⚠️ Web Playback SDK only works with Spotify Premium accounts
+              </p>
             </div>
             
             {/* Step 4 */}
