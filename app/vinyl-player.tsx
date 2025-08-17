@@ -127,12 +127,12 @@ export default function VinylPlayer() {
   useEffect(() => {
     const animate = () => {
       if (playbackState?.is_playing && !isTransitioning) {
-        // Slower rotation: 20 RPM = 0.333 rotations per second
-        // At 60fps, that's about 2 degrees per frame
-        setRotation((prev) => (prev + 2) % 360)
-      } else if (isTransitioning) {
-        // Keep spinning slowly during transition
+        // Much slower rotation: 10 RPM = 0.167 rotations per second
+        // At 60fps, that's about 1 degree per frame
         setRotation((prev) => (prev + 1) % 360)
+      } else if (isTransitioning) {
+        // Keep spinning very slowly during transition
+        setRotation((prev) => (prev + 0.5) % 360)
       }
       animationRef.current = requestAnimationFrame(animate)
     }
@@ -466,7 +466,7 @@ export default function VinylPlayer() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--vinyl-bg)' }}>
       {/* Spotify Connect Device Selector */}
-      {isAuthenticated && playbackState && (
+      {isAuthenticated && playbackState && isPremium && (
         <SpotifyConnect
           devices={devices}
           currentDevice={playbackState.device}
@@ -647,7 +647,7 @@ export default function VinylPlayer() {
                     src={getVinylDesignPath(vinylDesign)}
                     alt="Vinyl Record"
                     fill
-                    className="object-contain drop-shadow-2xl no-select"
+                    className="object-contain no-select"
                     draggable={false}
                     priority
                   />
@@ -842,22 +842,6 @@ export default function VinylPlayer() {
 
         {/* Center: Transport controls */}
         <div className="flex items-center gap-4 flex-1 justify-center">
-          {/* Previous track info */}
-          {queue?.previous && (
-            <div className="hidden lg:flex items-center gap-2 mr-4 opacity-60">
-              <Image
-                src={queue.previous.album.images[0]?.url || "/placeholder_album.png"}
-                alt="Previous"
-                width={32}
-                height={32}
-                className="rounded"
-              />
-              <div className="text-xs text-gray-600 max-w-[100px]">
-                <p className="truncate font-medium">{queue.previous.name}</p>
-                <p className="truncate opacity-75">{queue.previous.artists[0].name}</p>
-              </div>
-            </div>
-          )}
           
           <Button 
             variant="ghost" 
@@ -906,7 +890,7 @@ export default function VinylPlayer() {
           {currentTrack && (
             <div className="flex items-center gap-2 ml-4">
               <span className="text-xs w-10 text-right" style={{
-                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
               }}>
                 {formatTime(playbackState?.progress_ms || 0)}
               </span>
@@ -915,10 +899,10 @@ export default function VinylPlayer() {
                 max={100}
                 step={0.1}
                 className="w-32"
-                disabled
+                disabled={true}
               />
               <span className="text-xs w-10" style={{
-                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
               }}>
                 -{formatTime((currentTrack.duration_ms - (playbackState?.progress_ms || 0)))}
               </span>
@@ -931,17 +915,17 @@ export default function VinylPlayer() {
           {playbackState?.device && (
             <div className="flex items-center gap-2">
               <Volume2 className="w-4 h-4" style={{
-                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
               }} />
               <Slider 
                 value={[localVolume]} 
                 max={100} 
                 className="w-20"
-                disabled={!isPremium}
+                disabled={false}
                 onValueChange={handleVolumeChange}
               />
               <span className="text-xs w-8 text-center" style={{
-                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
               }}>
                 {Math.round(localVolume)}
               </span>

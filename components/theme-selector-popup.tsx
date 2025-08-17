@@ -295,16 +295,16 @@ export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumIm
                   <button
                     key={design.id}
                     onClick={() => handleVinylDesignSelect(design.id)}
-                    className="flex flex-col items-center gap-2 p-3 hover:bg-gray-50 rounded-lg transition-colors group relative"
+                    className="flex flex-col items-center gap-2 p-2 hover:bg-gray-50 rounded-lg transition-colors group relative"
                   >
-                    <div className="w-16 h-16 relative flex-shrink-0">
+                    <div className="w-12 h-12 relative flex-shrink-0">
                       <Image
                         src={design.imagePath}
                         alt={design.name}
                         fill
                         className="object-contain rounded-full"
                         style={{
-                          animation: 'spin 20s linear infinite',
+                          animation: 'spin 60s linear infinite',
                         }}
                       />
                     </div>
