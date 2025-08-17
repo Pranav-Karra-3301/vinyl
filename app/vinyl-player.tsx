@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, SkipBack, SkipForward, Volume2, Palette, LogOut, Music } from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, Volume2, LogOut, Music } from "lucide-react"
 import Image from "next/image"
 import { useSpotify } from "@/hooks/use-spotify"
 import { useWebPlayback } from "@/hooks/use-web-playback"
@@ -60,10 +60,10 @@ export default function VinylPlayer() {
   } = useSpotify()
 
   // Web Playback SDK for premium users
-  const { playUri, isReady: isWebPlaybackReady, setVolume: setWebVolume, volume: webVolume } = useWebPlayback(accessToken, isPremium)
+  const { playUri, isReady: isWebPlaybackReady, setVolume: setWebVolume, volume: webVolume, seek: webSeek } = useWebPlayback(accessToken, isPremium)
 
   // Theme management
-  const { theme, setTheme, albumGradient, setAlbumGradient } = useTheme()
+  const { theme, setTheme, albumGradient, setAlbumGradient, vinylDesign, setVinylDesign } = useTheme()
   
   // System status checks
   const getSystemStatus = () => {
@@ -127,12 +127,12 @@ export default function VinylPlayer() {
   useEffect(() => {
     const animate = () => {
       if (playbackState?.is_playing && !isTransitioning) {
-        // Slower rotation: 20 RPM = 0.333 rotations per second
-        // At 60fps, that's about 2 degrees per frame
-        setRotation((prev) => (prev + 2) % 360)
-      } else if (isTransitioning) {
-        // Keep spinning slowly during transition
+        // Much slower rotation: 10 RPM = 0.167 rotations per second
+        // At 60fps, that's about 1 degree per frame
         setRotation((prev) => (prev + 1) % 360)
+      } else if (isTransitioning) {
+        // Keep spinning very slowly during transition
+        setRotation((prev) => (prev + 0.5) % 360)
       }
       animationRef.current = requestAnimationFrame(animate)
     }
@@ -258,17 +258,42 @@ export default function VinylPlayer() {
     const volumeValue = newVolume[0]
     setLocalVolume(volumeValue)
     
-    // Try Web Playback SDK first if available and active
-    if (isPremium && isWebPlaybackReady && setWebVolume) {
-      const success = await setWebVolume(volumeValue)
-      if (success) return
+    // Always update device volume via Spotify API first (for consistency across apps)
+    let deviceVolumeSuccess = false
+    if (setSpotifyVolume) {
+      try {
+        deviceVolumeSuccess = await setSpotifyVolume(volumeValue)
+      } catch (error) {
+        console.error('Error setting device volume:', error)
+      }
     }
     
-    // Fallback to Spotify API
-    if (setSpotifyVolume) {
-      await setSpotifyVolume(volumeValue)
+    // Also update local Web Playback SDK volume if available (for immediate audio feedback)
+    if (isPremium && isWebPlaybackReady && setWebVolume) {
+      try {
+        await setWebVolume(volumeValue)
+      } catch (error) {
+        console.error('Error setting Web SDK volume:', error)
+      }
+    }
+    
+    // Log for debugging if both methods failed
+    if (!deviceVolumeSuccess && isPremium && isWebPlaybackReady) {
+      console.warn('Volume change may not have taken effect - both device and Web SDK updates had issues')
     }
   }, [isPremium, isWebPlaybackReady, setWebVolume, setSpotifyVolume])
+
+  const currentTrack = playbackState?.item || null
+
+  // Seek handler for progress bar
+  const handleSeek = useCallback(async (newProgress: number[]) => {
+    if (!currentTrack || !isPremium || !isWebPlaybackReady || !webSeek) return
+    
+    const progressPercent = newProgress[0]
+    const positionMs = Math.round((progressPercent / 100) * currentTrack.duration_ms)
+    
+    await webSeek(positionMs)
+  }, [currentTrack, isPremium, isWebPlaybackReady, webSeek])
 
   // Sync volume from external changes (keyboard/buttons)
   useEffect(() => {
@@ -369,8 +394,6 @@ export default function VinylPlayer() {
       }
     }
   }, [isDraggingNeedle, handleNeedleMouseMove, handleNeedleDragEnd])
-
-  const currentTrack = playbackState?.item || null
   const progress = currentTrack ? (playbackState.progress_ms / currentTrack.duration_ms) * 100 : 0
 
   // Update displayed track (for animations)
@@ -466,7 +489,7 @@ export default function VinylPlayer() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--vinyl-bg)' }}>
       {/* Spotify Connect Device Selector */}
-      {isAuthenticated && playbackState && (
+      {isAuthenticated && playbackState && isPremium && (
         <SpotifyConnect
           devices={devices}
           currentDevice={playbackState.device}
@@ -644,10 +667,35 @@ export default function VinylPlayer() {
                   }}
                 >
                   <Image
-                    src="/record.svg"
+                    src={(() => {
+                      // Inline vinyl design path logic
+                      let design = vinylDesign
+                      // If random is selected, pick a random design
+                      if (design === 'random') {
+                        const designs = ['design1', 'design2', 'design3', 'design4', 'design5', 'design6']
+                        design = designs[Math.floor(Math.random() * designs.length)]
+                      }
+                      
+                      switch (design) {
+                        case 'design1':
+                          return '/Vinyl Record Design Aug 14 2025.png'
+                        case 'design2':
+                          return '/Vinyl Record Design Aug 14 2025 (1).png'
+                        case 'design3':
+                          return '/Vinyl Record Design Aug 14 2025 (2).png'
+                        case 'design4':
+                          return '/Vinyl Record Design Aug 14 2025 (3).png'
+                        case 'design5':
+                          return '/Vinyl Record Design Aug 14 2025 (4).png'
+                        case 'design6':
+                          return '/Vinyl Record Design Aug 14 2025 (5).png'
+                        default:
+                          return '/record.svg'
+                      }
+                    })()}
                     alt="Vinyl Record"
                     fill
-                    className="object-contain drop-shadow-2xl no-select"
+                    className="object-contain no-select"
                     draggable={false}
                     priority
                   />
@@ -842,22 +890,6 @@ export default function VinylPlayer() {
 
         {/* Center: Transport controls */}
         <div className="flex items-center gap-4 flex-1 justify-center">
-          {/* Previous track info */}
-          {queue?.previous && (
-            <div className="hidden lg:flex items-center gap-2 mr-4 opacity-60">
-              <Image
-                src={queue.previous.album.images[0]?.url || "/placeholder_album.png"}
-                alt="Previous"
-                width={32}
-                height={32}
-                className="rounded"
-              />
-              <div className="text-xs text-gray-600 max-w-[100px]">
-                <p className="truncate font-medium">{queue.previous.name}</p>
-                <p className="truncate opacity-75">{queue.previous.artists[0].name}</p>
-              </div>
-            </div>
-          )}
           
           <Button 
             variant="ghost" 
@@ -906,7 +938,7 @@ export default function VinylPlayer() {
           {currentTrack && (
             <div className="flex items-center gap-2 ml-4">
               <span className="text-xs w-10 text-right" style={{
-                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
               }}>
                 {formatTime(playbackState?.progress_ms || 0)}
               </span>
@@ -915,10 +947,11 @@ export default function VinylPlayer() {
                 max={100}
                 step={0.1}
                 className="w-32"
-                disabled
+                disabled={!isPremium || !isWebPlaybackReady}
+                onValueChange={handleSeek}
               />
               <span className="text-xs w-10" style={{
-                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
               }}>
                 -{formatTime((currentTrack.duration_ms - (playbackState?.progress_ms || 0)))}
               </span>
@@ -931,17 +964,17 @@ export default function VinylPlayer() {
           {playbackState?.device && (
             <div className="flex items-center gap-2">
               <Volume2 className="w-4 h-4" style={{
-                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
               }} />
               <Slider 
                 value={[localVolume]} 
                 max={100} 
                 className="w-20"
-                disabled={!isPremium}
+                disabled={false}
                 onValueChange={handleVolumeChange}
               />
               <span className="text-xs w-8 text-center" style={{
-                color: theme === 'album' ? 'rgba(0,0,0,0.6)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
+                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
               }}>
                 {Math.round(localVolume)}
               </span>
@@ -950,164 +983,13 @@ export default function VinylPlayer() {
           {isPremium && isWebPlaybackReady && (
             <RecentItemsPopup onPlay={playUri} isPremium={isPremium} />
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" title="Change theme">
-                <Palette className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 p-0">
-              <div className="p-4">
-                <h3 className="font-semibold text-sm mb-3">Choose Theme</h3>
-                <div className="grid grid-cols-1 gap-3">
-                  {[
-                    { id: 'white', name: 'Light', preview: () => (
-                      <div className="w-full h-12 bg-white border border-gray-200 rounded-md overflow-hidden">
-                        <div className="h-2 bg-gray-50 border-b border-gray-100"></div>
-                        <div className="p-1.5 space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-4 h-4 bg-gray-100 rounded"></div>
-                            <div className="flex-1 space-y-0.5">
-                              <div className="h-1.5 bg-gray-200 rounded w-3/4"></div>
-                              <div className="h-1 bg-gray-100 rounded w-1/2"></div>
-                            </div>
-                          </div>
-                          <div className="flex justify-center gap-0.5 mt-1">
-                            <div className="w-2.5 h-2.5 bg-gray-300 rounded-full"></div>
-                            <div className="w-2.5 h-2.5 bg-gray-200 rounded-full"></div>
-                            <div className="w-2.5 h-2.5 bg-gray-200 rounded-full"></div>
-                          </div>
-                        </div>
-                      </div>
-                    )},
-                    { id: 'dark', name: 'Dark', preview: () => (
-                      <div className="w-full h-12 rounded-md overflow-hidden" style={{ backgroundColor: '#262624', border: '1px solid #3a3a37' }}>
-                        <div className="h-2 border-b" style={{ backgroundColor: '#2d2d2a', borderColor: '#3a3a37' }}></div>
-                        <div className="p-1.5 space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#333330' }}></div>
-                            <div className="flex-1 space-y-0.5">
-                              <div className="h-1.5 rounded w-3/4" style={{ backgroundColor: '#f5f5f5' }}></div>
-                              <div className="h-1 rounded w-1/2" style={{ backgroundColor: '#b3b3b3' }}></div>
-                            </div>
-                          </div>
-                          <div className="flex justify-center gap-0.5 mt-1">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#f5f5f5' }}></div>
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#333330' }}></div>
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#333330' }}></div>
-                          </div>
-                        </div>
-                      </div>
-                    )},
-                    { id: 'amoled', name: 'AMOLED', preview: () => (
-                      <div className="w-full h-12 bg-black border border-gray-800 rounded-md overflow-hidden">
-                        <div className="h-2 bg-black border-b border-gray-800"></div>
-                        <div className="p-1.5 space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-4 h-4 bg-gray-900 rounded"></div>
-                            <div className="flex-1 space-y-0.5">
-                              <div className="h-1.5 bg-gray-800 rounded w-3/4"></div>
-                              <div className="h-1 bg-gray-900 rounded w-1/2"></div>
-                            </div>
-                          </div>
-                          <div className="flex justify-center gap-0.5 mt-1">
-                            <div className="w-2.5 h-2.5 bg-gray-700 rounded-full"></div>
-                            <div className="w-2.5 h-2.5 bg-gray-800 rounded-full"></div>
-                            <div className="w-2.5 h-2.5 bg-gray-800 rounded-full"></div>
-                          </div>
-                        </div>
-                      </div>
-                    )},
-                    { id: 'album', name: 'Album', preview: () => (
-                      <div className="w-full h-12 rounded-md overflow-hidden relative">
-                        {currentTrack?.album?.images?.[0]?.url ? (
-                          <>
-                            <div 
-                              className="absolute inset-0 bg-gradient-to-br from-purple-500/80 via-pink-500/80 to-blue-500/80"
-                              style={{
-                                backgroundImage: `linear-gradient(135deg, rgba(139, 69, 19, 0.8), rgba(160, 82, 45, 0.8), rgba(210, 180, 140, 0.8))`,
-                              }}
-                            ></div>
-                            <div className="relative z-10 h-2 bg-black/20 border-b border-white/20"></div>
-                            <div className="relative z-10 p-1.5 space-y-1">
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-4 h-4 bg-white/20 rounded border border-white/30"></div>
-                                <div className="flex-1 space-y-0.5">
-                                  <div className="h-1.5 bg-white/30 rounded w-3/4"></div>
-                                  <div className="h-1 bg-white/20 rounded w-1/2"></div>
-                                </div>
-                              </div>
-                              <div className="flex justify-center gap-0.5 mt-1">
-                                <div className="w-2.5 h-2.5 bg-white/40 rounded-full"></div>
-                                <div className="w-2.5 h-2.5 bg-white/20 rounded-full"></div>
-                                <div className="w-2.5 h-2.5 bg-white/20 rounded-full"></div>
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500"></div>
-                            <div className="relative z-10 h-2 bg-black/20 border-b border-white/20"></div>
-                            <div className="relative z-10 p-1.5 space-y-1">
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-4 h-4 bg-white/20 rounded border border-white/30"></div>
-                                <div className="flex-1 space-y-0.5">
-                                  <div className="h-1.5 bg-white/30 rounded w-3/4"></div>
-                                  <div className="h-1 bg-white/20 rounded w-1/2"></div>
-                                </div>
-                              </div>
-                              <div className="flex justify-center gap-0.5 mt-1">
-                                <div className="w-2.5 h-2.5 bg-white/40 rounded-full"></div>
-                                <div className="w-2.5 h-2.5 bg-white/20 rounded-full"></div>
-                                <div className="w-2.5 h-2.5 bg-white/20 rounded-full"></div>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )},
-                    { id: 'orange', name: 'Orange', preview: () => (
-                      <div className="w-full h-12 rounded-md overflow-hidden" style={{ backgroundColor: '#fb8500' }}>
-                        <div className="h-2 border-b" style={{ backgroundColor: '#f77f00', borderColor: '#f77f00' }}></div>
-                        <div className="p-1.5 space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#ffb703' }}></div>
-                            <div className="flex-1 space-y-0.5">
-                              <div className="h-1.5 rounded w-3/4" style={{ backgroundColor: '#241E1C' }}></div>
-                              <div className="h-1 rounded w-1/2" style={{ backgroundColor: '#3D342F' }}></div>
-                            </div>
-                          </div>
-                          <div className="flex justify-center gap-0.5 mt-1">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#241E1C' }}></div>
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3D342F' }}></div>
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3D342F' }}></div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  ].map((themeOption) => (
-                    <button
-                      key={themeOption.id}
-                      onClick={() => setTheme(themeOption.id as any)}
-                      className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors text-left group relative"
-                    >
-                      <div className="w-16 h-12 flex-shrink-0">
-                        {themeOption.preview()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">{themeOption.name}</p>
-                          {theme === themeOption.id && (
-                            <div className="w-4 h-4 text-green-600">✓</div>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ThemeSelectorPopup
+            currentTheme={theme}
+            onThemeChange={(theme) => setTheme(theme as any)}
+            currentAlbumImage={currentTrack?.album?.images?.[0]?.url}
+            currentVinylDesign={vinylDesign}
+            onVinylDesignChange={setVinylDesign}
+          />
         </div>
       </div>
 

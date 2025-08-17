@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 
 export type ThemeType = 'white' | 'dark' | 'amoled' | 'album' | 'orange'
+export type VinylDesignType = 'default' | 'design1' | 'design2' | 'design3' | 'design4' | 'design5' | 'design6' | 'random'
 
 interface UseThemeReturn {
   theme: ThemeType
@@ -11,16 +12,20 @@ interface UseThemeReturn {
   setAlbumGradient: (gradient: string | null) => void
   albumBackgroundUrl: string | null
   setAlbumBackgroundUrl: (url: string | null) => void
+  vinylDesign: VinylDesignType
+  setVinylDesign: (design: VinylDesignType) => void
 }
 
 const THEME_STORAGE_KEY = 'vinyl-theme'
 const ALBUM_GRADIENT_STORAGE_KEY = 'vinyl-album-gradient'
 const ALBUM_BG_URL_STORAGE_KEY = 'vinyl-album-bg-url'
+const VINYL_DESIGN_STORAGE_KEY = 'vinyl-design'
 
 export function useTheme(): UseThemeReturn {
   const [theme, setThemeState] = useState<ThemeType>('white')
   const [albumGradient, setAlbumGradientState] = useState<string | null>(null)
   const [albumBackgroundUrl, setAlbumBackgroundUrlState] = useState<string | null>(null)
+  const [vinylDesign, setVinylDesignState] = useState<VinylDesignType>('default')
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -28,6 +33,7 @@ export function useTheme(): UseThemeReturn {
       const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as ThemeType
       const savedGradient = localStorage.getItem(ALBUM_GRADIENT_STORAGE_KEY)
       const savedBgUrl = localStorage.getItem(ALBUM_BG_URL_STORAGE_KEY)
+      const savedVinylDesign = localStorage.getItem(VINYL_DESIGN_STORAGE_KEY) as VinylDesignType
       
       if (savedTheme && ['white', 'dark', 'amoled', 'album', 'orange'].includes(savedTheme)) {
         setThemeState(savedTheme)
@@ -39,6 +45,10 @@ export function useTheme(): UseThemeReturn {
       
       if (savedBgUrl) {
         setAlbumBackgroundUrlState(savedBgUrl)
+      }
+      
+      if (savedVinylDesign && ['default', 'design1', 'design2', 'design3', 'design4', 'design5', 'design6', 'random'].includes(savedVinylDesign)) {
+        setVinylDesignState(savedVinylDesign)
       }
     }
   }, [])
@@ -106,13 +116,22 @@ export function useTheme(): UseThemeReturn {
     }
   }, [])
 
+  const setVinylDesign = useCallback((design: VinylDesignType) => {
+    setVinylDesignState(design)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(VINYL_DESIGN_STORAGE_KEY, design)
+    }
+  }, [])
+
   return {
     theme,
     setTheme,
     albumGradient,
     setAlbumGradient,
     albumBackgroundUrl,
-    setAlbumBackgroundUrl
+    setAlbumBackgroundUrl,
+    vinylDesign,
+    setVinylDesign
   }
 }
 
@@ -301,4 +320,30 @@ export function getContrastColor(backgroundColor: string): 'light' | 'dark' {
   // Calculate luminance
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   return luminance > 0.5 ? 'dark' : 'light'
+}
+
+// Utility function to get vinyl design image path
+export function getVinylDesignPath(design: VinylDesignType): string {
+  // If random is selected, pick a random design
+  if (design === 'random') {
+    const designs: VinylDesignType[] = ['design1', 'design2', 'design3', 'design4', 'design5', 'design6']
+    design = designs[Math.floor(Math.random() * designs.length)]
+  }
+  
+  switch (design) {
+    case 'design1':
+      return '/Vinyl Record Design Aug 14 2025.png'
+    case 'design2':
+      return '/Vinyl Record Design Aug 14 2025 (1).png'
+    case 'design3':
+      return '/Vinyl Record Design Aug 14 2025 (2).png'
+    case 'design4':
+      return '/Vinyl Record Design Aug 14 2025 (3).png'
+    case 'design5':
+      return '/Vinyl Record Design Aug 14 2025 (4).png'
+    case 'design6':
+      return '/Vinyl Record Design Aug 14 2025 (5).png'
+    default:
+      return '/record.svg'
+  }
 }
