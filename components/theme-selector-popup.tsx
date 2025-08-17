@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { VinylDesignType, getVinylDesignPath } from '@/hooks/use-theme'
+import { VinylDesignType } from '@/hooks/use-theme'
 import Image from 'next/image'
 
 // Custom Random icon component using the provided SVG
@@ -220,7 +220,7 @@ export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumIm
     {
       id: 'default',
       name: 'Classic',
-      imagePath: getVinylDesignPath('default')
+      imagePath: '/record.svg'
     },
     {
       id: 'random',
@@ -230,32 +230,32 @@ export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumIm
     {
       id: 'design1',
       name: 'Design 1',
-      imagePath: getVinylDesignPath('design1')
+      imagePath: '/Vinyl Record Design Aug 14 2025.png'
     },
     {
       id: 'design2',
       name: 'Design 2',
-      imagePath: getVinylDesignPath('design2')
+      imagePath: '/Vinyl Record Design Aug 14 2025 (1).png'
     },
     {
       id: 'design3',
       name: 'Design 3',
-      imagePath: getVinylDesignPath('design3')
+      imagePath: '/Vinyl Record Design Aug 14 2025 (2).png'
     },
     {
       id: 'design4',
       name: 'Design 4',
-      imagePath: getVinylDesignPath('design4')
+      imagePath: '/Vinyl Record Design Aug 14 2025 (3).png'
     },
     {
       id: 'design5',
       name: 'Design 5',
-      imagePath: getVinylDesignPath('design5')
+      imagePath: '/Vinyl Record Design Aug 14 2025 (4).png'
     },
     {
       id: 'design6',
       name: 'Design 6',
-      imagePath: getVinylDesignPath('design6')
+      imagePath: '/Vinyl Record Design Aug 14 2025 (5).png'
     }
   ]
 
