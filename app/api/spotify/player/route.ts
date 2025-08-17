@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // GET current playback state
 export async function GET(request: NextRequest) {
-  const accessToken = request.cookies.get('spotify_access_token')?.value
+  // Check for token from middleware first (if it was refreshed)
+  const accessToken = request.headers.get('x-spotify-access-token') || 
+                      request.cookies.get('spotify_access_token')?.value
   
   if (!accessToken) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -38,7 +40,9 @@ export async function GET(request: NextRequest) {
 
 // PUT play/pause/volume
 export async function PUT(request: NextRequest) {
-  const accessToken = request.cookies.get('spotify_access_token')?.value
+  // Check for token from middleware first (if it was refreshed)
+  const accessToken = request.headers.get('x-spotify-access-token') || 
+                      request.cookies.get('spotify_access_token')?.value
   
   if (!accessToken) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })

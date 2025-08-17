@@ -3,14 +3,15 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, SkipBack, SkipForward, Volume2, Palette, LogOut, Music } from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, Volume2, Palette, LogOut, Music, Settings } from "lucide-react"
 import Image from "next/image"
 import { useSpotify } from "@/hooks/use-spotify"
 import { useWebPlayback } from "@/hooks/use-web-playback"
 import { useDynamicTitle } from "@/hooks/use-dynamic-title"
+import { CredentialSetup } from "@/components/credential-setup"
+import { getCredentials, hasStoredCredentials, clearCredentials } from "@/lib/credential-storage"
 import { RecentItemsPopup } from "@/components/recent-items-popup"
 import { ThemeSelectorPopup } from "@/components/theme-selector-popup"
-import { SpotifyConnect } from "@/components/spotify-connect"
 import { useTheme, generateAlbumGradient } from "@/hooks/use-theme"
 import {
   DropdownMenu,
@@ -30,6 +31,8 @@ export default function VinylPlayer() {
   const animationRef = useRef<number>()
   const [isDraggingNeedle, setIsDraggingNeedle] = useState(false)
   const [albumHover, setAlbumHover] = useState(false)
+  const [hasCredentials, setHasCredentials] = useState(false)
+  const [checkingCredentials, setCheckingCredentials] = useState(true)
   
   // Animation states
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -67,27 +70,18 @@ export default function VinylPlayer() {
   
   // System status checks
   const getSystemStatus = () => {
-    // Check environment variables (these will be available on Vercel deployment)
-    const hasClientId = typeof window !== 'undefined' 
-      ? (!!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || 
-         localStorage.getItem('spotify_client_id') !== null)
-      : !!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID
-      
-    const hasClientSecret = typeof window !== 'undefined'
-      ? (!!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_SECRET || 
-         localStorage.getItem('spotify_client_secret') !== null)
-      : true // Assume it's on server/Vercel if not in browser
+    // Check for stored credentials
+    const hasStoredCreds = hasStoredCredentials()
     
     const checks = {
-      spotifyClientId: hasClientId,
-      spotifyClientSecret: hasClientSecret,
+      spotifyCredentials: hasStoredCreds,
       authenticated: isAuthenticated,
       themeCache: typeof window !== 'undefined' && !!localStorage.getItem('vinyl-theme'),
       webPlayback: isPremium && isWebPlaybackReady,
     }
     
     // Determine overall status
-    const critical = !checks.spotifyClientId || !checks.spotifyClientSecret
+    const critical = !checks.spotifyCredentials
     const warnings = !checks.authenticated || (isPremium && !checks.webPlayback)
     
     return {
@@ -102,7 +96,7 @@ export default function VinylPlayer() {
     isPlaying: playbackState?.is_playing || false
   })
 
-  // Check if desktop on mount and disable right-click
+  // Check if desktop on mount, disable right-click, and check for credentials
   useEffect(() => {
     const checkDesktop = () => {
       setIsDesktop(window.innerWidth >= 1024)
@@ -116,6 +110,17 @@ export default function VinylPlayer() {
     checkDesktop()
     window.addEventListener("resize", checkDesktop)
     document.addEventListener("contextmenu", handleContextMenu)
+    
+    // Check for stored credentials
+    const hasStoredCreds = hasStoredCredentials()
+    setHasCredentials(hasStoredCreds)
+    
+    // If we have credentials, load them into session storage
+    if (hasStoredCreds) {
+      getCredentials()
+    }
+    
+    setCheckingCredentials(false)
     
     return () => {
       window.removeEventListener("resize", checkDesktop)
@@ -304,6 +309,50 @@ export default function VinylPlayer() {
     runTrackTransition(skipToPrevious)
   }, [runTrackTransition, skipToPrevious])
   
+  // Handle credentials saved
+  const handleCredentialsSaved = () => {
+    setHasCredentials(true)
+    // Reload to reinitialize with credentials
+    window.location.reload()
+  }
+  
+  // Handle sign in with stored credentials
+  const handleSignIn = async () => {
+    const credentials = getCredentials()
+    if (!credentials) {
+      setHasCredentials(false)
+      return
+    }
+    
+    try {
+      // Initiate auth flow with stored credentials
+      const response = await fetch('/api/auth/spotify/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientId: credentials.clientId,
+          clientSecret: credentials.clientSecret
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to initiate authentication')
+      }
+      
+      const data = await response.json()
+      if (data.authUrl) {
+        window.location.href = data.authUrl
+      }
+    } catch (error) {
+      console.error('Auth error:', error)
+      // Clear invalid credentials
+      clearCredentials()
+      setHasCredentials(false)
+    }
+  }
+  
   // Handle needle dragging for play/pause (mouse and touch)
   const handleNeedleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault()
@@ -408,6 +457,23 @@ export default function VinylPlayer() {
     }
   }, [theme, currentTrack?.album?.images, setAlbumGradient])
 
+  // Show loading state when checking for credentials
+  if (checkingCredentials) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center" style={{ background: 'var(--vinyl-bg)' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking credentials...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // Show credential setup if no credentials are stored
+  if (!hasCredentials) {
+    return <CredentialSetup onCredentialsSaved={handleCredentialsSaved} />
+  }
+  
   // Show loading state when checking for playback
   if (isLoading && isAuthenticated) {
     return (
@@ -465,17 +531,6 @@ export default function VinylPlayer() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--vinyl-bg)' }}>
-      {/* Spotify Connect Device Selector */}
-      {isAuthenticated && playbackState && (
-        <SpotifyConnect
-          devices={devices}
-          currentDevice={playbackState.device}
-          onTransferPlayback={transferPlayback}
-          isPremium={isPremium}
-          theme={theme}
-        />
-      )}
-      
       {/* Header with Spotify Auth */}
       <div className="absolute top-4 right-4 z-50">
         {isAuthenticated ? (
@@ -566,6 +621,15 @@ export default function VinylPlayer() {
                   <DropdownMenuSeparator />
                 </>
               )}
+              <DropdownMenuItem 
+                onClick={() => {
+                  clearCredentials()
+                  window.location.reload()
+                }}
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Change Credentials
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={logout} className="text-red-600">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
@@ -574,19 +638,17 @@ export default function VinylPlayer() {
           </DropdownMenu>
         ) : (
           <Button 
-            asChild 
+            onClick={handleSignIn}
             className="bg-black hover:bg-gray-900 text-white px-6 py-2"
           >
-            <a href="/api/auth/spotify/login" className="flex items-center gap-3">
-              <Image
-                src="/Spotify_Primary_Logo_RGB_Green.png"
-                alt="Spotify"
-                width={20}
-                height={20}
-                className="object-contain"
-              />
-              <span>Sign in with Spotify</span>
-            </a>
+            <Image
+              src="/Spotify_Primary_Logo_RGB_Green.png"
+              alt="Spotify"
+              width={20}
+              height={20}
+              className="object-contain mr-3"
+            />
+            <span>Sign in with Spotify</span>
           </Button>
         )}
       </div>

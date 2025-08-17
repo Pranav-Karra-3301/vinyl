@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const TOKEN_URL = 'https://accounts.spotify.com/api/token'
-const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
-const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET
 const REDIRECT_URI =
   process.env.NODE_ENV === 'production'
     ? 'https://music.pranavkarra.me/api/auth/spotify/callback'
@@ -29,6 +27,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/?error=no_code', request.url))
   }
   
+  // Get stored client_id and client_secret from temporary cookies
+  const clientId = request.cookies.get('spotify_client_id_temp')?.value
+  const clientSecret = request.cookies.get('spotify_client_secret_temp')?.value
+  
+  // Fallback to environment variables if not in cookies
+  const CLIENT_ID = clientId || process.env.SPOTIFY_CLIENT_ID
+  const CLIENT_SECRET = clientSecret || process.env.SPOTIFY_CLIENT_SECRET
+  
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    return NextResponse.redirect(new URL('/?error=missing_credentials', request.url))
+  }
+  
   // Exchange code for tokens
   try {
     const response = await fetch(TOKEN_URL, {
@@ -50,6 +60,9 @@ export async function GET(request: NextRequest) {
     
     const data = await response.json()
     
+    // Calculate token expiry time (slightly before actual expiry for safety)
+    const expiresAt = Date.now() + ((data.expires_in - 60) * 1000) // Refresh 1 minute before expiry
+    
     // Create response with redirect to home
     const redirectResponse = NextResponse.redirect(new URL('/', request.url))
     
@@ -68,8 +81,27 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 30 // 30 days
     })
     
-    // Clear state cookie
+    // Store token expiry time
+    redirectResponse.cookies.set('spotify_token_expires_at', expiresAt.toString(), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: data.expires_in
+    })
+    
+    // Store credentials for token refresh
+    redirectResponse.cookies.set('spotify_client_credentials', 
+      Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64'), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30 // 30 days
+    })
+    
+    // Clear temporary cookies
     redirectResponse.cookies.delete('spotify_auth_state')
+    redirectResponse.cookies.delete('spotify_client_id_temp')
+    redirectResponse.cookies.delete('spotify_client_secret_temp')
     
     return redirectResponse
   } catch (error) {
