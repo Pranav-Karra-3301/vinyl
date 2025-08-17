@@ -11,7 +11,7 @@ import { useDynamicTitle } from "@/hooks/use-dynamic-title"
 import { RecentItemsPopup } from "@/components/recent-items-popup"
 import { ThemeSelectorPopup } from "@/components/theme-selector-popup"
 import { SpotifyConnect } from "@/components/spotify-connect"
-import { useTheme, generateAlbumGradient, getVinylDesignPath } from "@/hooks/use-theme"
+import { useTheme, generateAlbumGradient } from "@/hooks/use-theme"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -283,6 +283,8 @@ export default function VinylPlayer() {
     }
   }, [isPremium, isWebPlaybackReady, setWebVolume, setSpotifyVolume])
 
+  const currentTrack = playbackState?.item || null
+
   // Seek handler for progress bar
   const handleSeek = useCallback(async (newProgress: number[]) => {
     if (!currentTrack || !isPremium || !isWebPlaybackReady || !webSeek) return
@@ -392,8 +394,6 @@ export default function VinylPlayer() {
       }
     }
   }, [isDraggingNeedle, handleNeedleMouseMove, handleNeedleDragEnd])
-
-  const currentTrack = playbackState?.item || null
   const progress = currentTrack ? (playbackState.progress_ms / currentTrack.duration_ms) * 100 : 0
 
   // Update displayed track (for animations)
@@ -667,7 +667,32 @@ export default function VinylPlayer() {
                   }}
                 >
                   <Image
-                    src={getVinylDesignPath(vinylDesign)}
+                    src={(() => {
+                      // Inline vinyl design path logic
+                      let design = vinylDesign
+                      // If random is selected, pick a random design
+                      if (design === 'random') {
+                        const designs = ['design1', 'design2', 'design3', 'design4', 'design5', 'design6']
+                        design = designs[Math.floor(Math.random() * designs.length)]
+                      }
+                      
+                      switch (design) {
+                        case 'design1':
+                          return '/Vinyl Record Design Aug 14 2025.png'
+                        case 'design2':
+                          return '/Vinyl Record Design Aug 14 2025 (1).png'
+                        case 'design3':
+                          return '/Vinyl Record Design Aug 14 2025 (2).png'
+                        case 'design4':
+                          return '/Vinyl Record Design Aug 14 2025 (3).png'
+                        case 'design5':
+                          return '/Vinyl Record Design Aug 14 2025 (4).png'
+                        case 'design6':
+                          return '/Vinyl Record Design Aug 14 2025 (5).png'
+                        default:
+                          return '/record.svg'
+                      }
+                    })()}
                     alt="Vinyl Record"
                     fill
                     className="object-contain no-select"
