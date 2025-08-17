@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { Palette, Check } from 'lucide-react'
+import { Palette, Check, Disc } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { VinylDesignType, getVinylDesignPath } from '@/hooks/use-theme'
+import Image from 'next/image'
 
 interface ThemeOption {
   id: string
@@ -13,10 +16,18 @@ interface ThemeOption {
   preview: () => JSX.Element
 }
 
+interface VinylDesignOption {
+  id: VinylDesignType
+  name: string
+  imagePath: string
+}
+
 interface ThemeSelectorPopupProps {
   currentTheme: string
   onThemeChange: (theme: string) => void
   currentAlbumImage?: string
+  currentVinylDesign: VinylDesignType
+  onVinylDesignChange: (design: VinylDesignType) => void
 }
 
 // Theme preview skeleton components
@@ -149,8 +160,46 @@ const OrangeThemePreview = () => (
   </div>
 )
 
-export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumImage }: ThemeSelectorPopupProps) {
+export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumImage, currentVinylDesign, onVinylDesignChange }: ThemeSelectorPopupProps) {
   const [isOpen, setIsOpen] = useState(false)
+
+  const vinylDesignOptions: VinylDesignOption[] = [
+    {
+      id: 'default',
+      name: 'Classic',
+      imagePath: getVinylDesignPath('default')
+    },
+    {
+      id: 'design1',
+      name: 'Design 1',
+      imagePath: getVinylDesignPath('design1')
+    },
+    {
+      id: 'design2',
+      name: 'Design 2',
+      imagePath: getVinylDesignPath('design2')
+    },
+    {
+      id: 'design3',
+      name: 'Design 3',
+      imagePath: getVinylDesignPath('design3')
+    },
+    {
+      id: 'design4',
+      name: 'Design 4',
+      imagePath: getVinylDesignPath('design4')
+    },
+    {
+      id: 'design5',
+      name: 'Design 5',
+      imagePath: getVinylDesignPath('design5')
+    },
+    {
+      id: 'design6',
+      name: 'Design 6',
+      imagePath: getVinylDesignPath('design6')
+    }
+  ]
 
   const themeOptions: ThemeOption[] = [
     {
@@ -185,6 +234,11 @@ export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumIm
     setIsOpen(false)
   }
 
+  const handleVinylDesignSelect = (designId: VinylDesignType) => {
+    onVinylDesignChange(designId)
+    setIsOpen(false)
+  }
+
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
@@ -193,31 +247,81 @@ export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumIm
           <span className="hidden sm:inline">Themes</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="p-4">
-          <h3 className="font-semibold text-sm mb-3">Choose Theme</h3>
-          <div className="grid grid-cols-1 gap-3">
-            {themeOptions.map((theme) => (
-              <button
-                key={theme.id}
-                onClick={() => handleThemeSelect(theme.id)}
-                className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors text-left group relative"
-              >
-                <div className="w-20 h-16 flex-shrink-0">
-                  {theme.preview()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{theme.name}</p>
-                    {currentTheme === theme.id && (
-                      <Check className="w-4 h-4 text-green-600" />
-                    )}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+      <PopoverContent className="w-96 p-0" align="end">
+        <Tabs defaultValue="themes" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 m-2">
+            <TabsTrigger value="themes" className="gap-2">
+              <Palette className="w-4 h-4" />
+              Themes
+            </TabsTrigger>
+            <TabsTrigger value="vinyl" className="gap-2">
+              <Disc className="w-4 h-4" />
+              Vinyl Designs
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="themes" className="p-4 pt-0">
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm">Choose Theme</h3>
+              <div className="grid grid-cols-1 gap-3">
+                {themeOptions.map((theme) => (
+                  <button
+                    key={theme.id}
+                    onClick={() => handleThemeSelect(theme.id)}
+                    className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors text-left group relative"
+                  >
+                    <div className="w-20 h-16 flex-shrink-0">
+                      {theme.preview()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{theme.name}</p>
+                        {currentTheme === theme.id && (
+                          <Check className="w-4 h-4 text-green-600" />
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="vinyl" className="p-4 pt-0">
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm">Choose Vinyl Design</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {vinylDesignOptions.map((design) => (
+                  <button
+                    key={design.id}
+                    onClick={() => handleVinylDesignSelect(design.id)}
+                    className="flex flex-col items-center gap-2 p-3 hover:bg-gray-50 rounded-lg transition-colors group relative"
+                  >
+                    <div className="w-16 h-16 relative flex-shrink-0">
+                      <Image
+                        src={design.imagePath}
+                        alt={design.name}
+                        fill
+                        className="object-contain rounded-full"
+                        style={{
+                          animation: 'spin 20s linear infinite',
+                        }}
+                      />
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center gap-2 justify-center">
+                        <p className="text-xs font-medium">{design.name}</p>
+                        {currentVinylDesign === design.id && (
+                          <Check className="w-3 h-3 text-green-600" />
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </PopoverContent>
     </Popover>
   )
