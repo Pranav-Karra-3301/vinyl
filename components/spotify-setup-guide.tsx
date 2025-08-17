@@ -129,6 +129,29 @@ export function SpotifySetupGuide({ open, onOpenChange }: SpotifySetupGuideProps
                 <div className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center font-semibold">
                   4
                 </div>
+                <h4 className="font-semibold">User Management (Important!)</h4>
+              </div>
+              <ul className="text-sm text-muted-foreground ml-11 space-y-2">
+                <li>• Go to your app's <strong>User Management</strong> section</li>
+                <li>• Add your email address if it's different from your Spotify account email</li>
+                <li>• You MUST be listed as a user to access the app</li>
+                <li className="text-amber-600 dark:text-amber-500">
+                  <strong>Optional:</strong> You can add friends' emails to share access
+                  <ul className="ml-4 mt-1 text-xs">
+                    <li>- They would need your Client ID and Secret</li>
+                    <li>- Not recommended for security reasons</li>
+                    <li>- Maximum 25 users in development mode</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+            
+            {/* Step 5 */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center font-semibold">
+                  5
+                </div>
                 <h4 className="font-semibold">Get Your Credentials</h4>
               </div>
               <ul className="text-sm text-muted-foreground ml-11 space-y-2">
