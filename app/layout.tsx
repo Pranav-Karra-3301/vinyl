@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://vinyl.pranavkarra.me'),
   title: 'Vinyl',
   description: 'A beautiful vinyl record player for Spotify',
   icons: {
@@ -13,13 +14,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Vinyl - Spotify Record Player',
     description: 'A beautiful vinyl record player for Spotify',
-    url: 'https://music.pranavkarra.me',
+    url: 'https://vinyl.pranavkarra.me',
     siteName: 'Vinyl',
     images: [
       {
-        url: '/placeholder_album.png',
-        width: 800,
-        height: 800,
+        url: '/Vinyl Record Design Aug 14 2025.png',
+        width: 1200,
+        height: 630,
         alt: 'Vinyl Record Player',
       },
     ],
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Vinyl - Spotify Record Player',
     description: 'A beautiful vinyl record player for Spotify',
-    images: ['/placeholder_album.png'],
+    images: ['/Vinyl Record Design Aug 14 2025.png'],
   },
 }
 
