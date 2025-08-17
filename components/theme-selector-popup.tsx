@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Palette, Check, Disc, Shuffle } from 'lucide-react'
+import { Palette, Check, Disc } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -9,6 +9,28 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { VinylDesignType, getVinylDesignPath } from '@/hooks/use-theme'
 import Image from 'next/image'
+
+// Custom Random icon component using the provided SVG
+const RandomIcon = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="m18 14 4 4-4 4"/>
+    <path d="m18 2 4 4-4 4"/>
+    <path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/>
+    <path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/>
+    <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/>
+  </svg>
+)
 
 interface ThemeOption {
   id: string
@@ -163,6 +185,37 @@ const OrangeThemePreview = () => (
 export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumImage, currentVinylDesign, onVinylDesignChange }: ThemeSelectorPopupProps) {
   const [isOpen, setIsOpen] = useState(false)
 
+  // Helper function to render design icon - fixes complex ternary compilation issue
+  const renderDesignIcon = (design: VinylDesignOption) => {
+    if (design.id === 'random') {
+      return (
+        <div className="w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+          <RandomIcon className="w-5 h-5 text-white" />
+        </div>
+      )
+    }
+    
+    if (design.id === 'default') {
+      return (
+        <div className="w-full h-full bg-gradient-to-r from-blue-500 to-teal-500 rounded-full flex items-center justify-center">
+          <RandomIcon className="w-5 h-5 text-white" />
+        </div>
+      )
+    }
+    
+    return (
+      <Image
+        src={design.imagePath}
+        alt={design.name}
+        fill
+        className="object-contain rounded-full"
+        style={{
+          animation: 'spin 60s linear infinite',
+        }}
+      />
+    )
+  }
+
   const vinylDesignOptions: VinylDesignOption[] = [
     {
       id: 'default',
@@ -303,25 +356,7 @@ export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumIm
                     className="flex flex-col items-center gap-2 p-3 hover:bg-gray-50 rounded-lg transition-colors group relative min-h-[80px]"
                   >
                     <div className="w-10 h-10 relative flex-shrink-0">
-                      {design.id === 'random' ? (
-                        <div className="w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                          <Shuffle className="w-5 h-5 text-white" />
-                        </div>
-                      ) : design.id === 'default' ? (
-                        <div className="w-full h-full bg-gradient-to-r from-blue-500 to-teal-500 rounded-full flex items-center justify-center">
-                          <Shuffle className="w-5 h-5 text-white" />
-                        </div>
-                      ) : (
-                        <Image
-                          src={design.imagePath}
-                          alt={design.name}
-                          fill
-                          className="object-contain rounded-full"
-                          style={{
-                            animation: 'spin 60s linear infinite',
-                          }}
-                        />
-                      )}
+                      {renderDesignIcon(design)}
                     </div>
                     <div className="text-center flex-1 flex items-center justify-center">
                       <div className="flex items-center gap-1">
