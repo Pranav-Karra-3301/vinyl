@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 
 export type ThemeType = 'white' | 'dark' | 'amoled' | 'album' | 'orange'
-export type VinylDesignType = 'default' | 'design1' | 'design2' | 'design3' | 'design4' | 'design5' | 'design6'
+export type VinylDesignType = 'default' | 'design1' | 'design2' | 'design3' | 'design4' | 'design5' | 'design6' | 'random'
 
 interface UseThemeReturn {
   theme: ThemeType
@@ -47,7 +47,7 @@ export function useTheme(): UseThemeReturn {
         setAlbumBackgroundUrlState(savedBgUrl)
       }
       
-      if (savedVinylDesign && ['default', 'design1', 'design2', 'design3', 'design4', 'design5', 'design6'].includes(savedVinylDesign)) {
+      if (savedVinylDesign && ['default', 'design1', 'design2', 'design3', 'design4', 'design5', 'design6', 'random'].includes(savedVinylDesign)) {
         setVinylDesignState(savedVinylDesign)
       }
     }
@@ -322,8 +322,19 @@ export function getContrastColor(backgroundColor: string): 'light' | 'dark' {
   return luminance > 0.5 ? 'dark' : 'light'
 }
 
+// Utility function to get random vinyl design (excluding default and random)
+export function getRandomVinylDesign(): VinylDesignType {
+  const designs: VinylDesignType[] = ['design1', 'design2', 'design3', 'design4', 'design5', 'design6']
+  return designs[Math.floor(Math.random() * designs.length)]
+}
+
 // Utility function to get vinyl design image path
 export function getVinylDesignPath(design: VinylDesignType): string {
+  // If random is selected, pick a random design
+  if (design === 'random') {
+    design = getRandomVinylDesign()
+  }
+  
   switch (design) {
     case 'design1':
       return '/Vinyl Record Design Aug 14 2025.png'

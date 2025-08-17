@@ -119,6 +119,20 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
     return null
   }, [isReady])
 
+  // Seek to position using Web Playback SDK
+  const seek = useCallback(async (positionMs: number) => {
+    if (playerRef.current && isReady) {
+      try {
+        await playerRef.current.seek(positionMs)
+        return true
+      } catch (error) {
+        console.error('Error seeking:', error)
+        return false
+      }
+    }
+    return false
+  }, [isReady])
+
   useEffect(() => {
     if (!isPremium || !token) return
 
@@ -219,6 +233,7 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
     playUri,
     transferPlayback,
     setVolume,
-    getVolume
+    getVolume,
+    seek
   }
 }

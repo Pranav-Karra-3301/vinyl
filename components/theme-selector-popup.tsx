@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Palette, Check, Disc } from 'lucide-react'
+import { Palette, Check, Disc, Shuffle } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -170,6 +170,11 @@ export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumIm
       imagePath: getVinylDesignPath('default')
     },
     {
+      id: 'random',
+      name: 'Random',
+      imagePath: '/record.svg' // Use default SVG for random preview
+    },
+    {
       id: 'design1',
       name: 'Design 1',
       imagePath: getVinylDesignPath('design1')
@@ -290,29 +295,39 @@ export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumIm
           <TabsContent value="vinyl" className="p-4 pt-0">
             <div className="space-y-3">
               <h3 className="font-semibold text-sm">Choose Vinyl Design</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {vinylDesignOptions.map((design) => (
                   <button
                     key={design.id}
                     onClick={() => handleVinylDesignSelect(design.id)}
-                    className="flex flex-col items-center gap-2 p-2 hover:bg-gray-50 rounded-lg transition-colors group relative"
+                    className="flex flex-col items-center gap-2 p-3 hover:bg-gray-50 rounded-lg transition-colors group relative min-h-[80px]"
                   >
-                    <div className="w-12 h-12 relative flex-shrink-0">
-                      <Image
-                        src={design.imagePath}
-                        alt={design.name}
-                        fill
-                        className="object-contain rounded-full"
-                        style={{
-                          animation: 'spin 60s linear infinite',
-                        }}
-                      />
+                    <div className="w-10 h-10 relative flex-shrink-0">
+                      {design.id === 'random' ? (
+                        <div className="w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                          <Shuffle className="w-5 h-5 text-white" />
+                        </div>
+                      ) : design.id === 'default' ? (
+                        <div className="w-full h-full bg-gradient-to-r from-blue-500 to-teal-500 rounded-full flex items-center justify-center">
+                          <Shuffle className="w-5 h-5 text-white" />
+                        </div>
+                      ) : (
+                        <Image
+                          src={design.imagePath}
+                          alt={design.name}
+                          fill
+                          className="object-contain rounded-full"
+                          style={{
+                            animation: 'spin 60s linear infinite',
+                          }}
+                        />
+                      )}
                     </div>
-                    <div className="text-center">
-                      <div className="flex items-center gap-2 justify-center">
-                        <p className="text-xs font-medium">{design.name}</p>
+                    <div className="text-center flex-1 flex items-center justify-center">
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs font-medium leading-tight">{design.name}</p>
                         {currentVinylDesign === design.id && (
-                          <Check className="w-3 h-3 text-green-600" />
+                          <Check className="w-3 h-3 text-green-600 flex-shrink-0" />
                         )}
                       </div>
                     </div>

@@ -229,8 +229,8 @@
   --card-foreground: var(--album-text-color, #ffffff);
   --popover: rgba(0, 0, 0, 0.8);
   --popover-foreground: #ffffff;
-  --primary: var(--album-text-color, #ffffff);
-  --primary-foreground: var(--album-bg-color, #000000);
+  --primary: rgba(255, 255, 255, 0.9);
+  --primary-foreground: rgba(0, 0, 0, 0.9);
   --secondary: rgba(255, 255, 255, 0.15);
   --secondary-foreground: var(--album-text-color, #ffffff);
   --muted: rgba(255, 255, 255, 0.15);
@@ -243,6 +243,21 @@
   --input: rgba(255, 255, 255, 0.2);
   --ring: rgba(255, 255, 255, 0.4);
   --vinyl-bg: var(--album-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+}
+
+/* Album theme specific slider styles for better visibility */
+.theme-album [data-radix-slider-track] {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.theme-album [data-radix-slider-range] {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.theme-album [data-radix-slider-thumb] {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 2px solid rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* Theme: Orange */

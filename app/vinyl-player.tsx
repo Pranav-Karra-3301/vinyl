@@ -60,7 +60,7 @@ export default function VinylPlayer() {
   } = useSpotify()
 
   // Web Playback SDK for premium users
-  const { playUri, isReady: isWebPlaybackReady, setVolume: setWebVolume, volume: webVolume } = useWebPlayback(accessToken, isPremium)
+  const { playUri, isReady: isWebPlaybackReady, setVolume: setWebVolume, volume: webVolume, seek: webSeek } = useWebPlayback(accessToken, isPremium)
 
   // Theme management
   const { theme, setTheme, albumGradient, setAlbumGradient, vinylDesign, setVinylDesign } = useTheme()
@@ -258,17 +258,40 @@ export default function VinylPlayer() {
     const volumeValue = newVolume[0]
     setLocalVolume(volumeValue)
     
-    // Try Web Playback SDK first if available and active
-    if (isPremium && isWebPlaybackReady && setWebVolume) {
-      const success = await setWebVolume(volumeValue)
-      if (success) return
+    // Always update device volume via Spotify API first (for consistency across apps)
+    let deviceVolumeSuccess = false
+    if (setSpotifyVolume) {
+      try {
+        deviceVolumeSuccess = await setSpotifyVolume(volumeValue)
+      } catch (error) {
+        console.error('Error setting device volume:', error)
+      }
     }
     
-    // Fallback to Spotify API
-    if (setSpotifyVolume) {
-      await setSpotifyVolume(volumeValue)
+    // Also update local Web Playback SDK volume if available (for immediate audio feedback)
+    if (isPremium && isWebPlaybackReady && setWebVolume) {
+      try {
+        await setWebVolume(volumeValue)
+      } catch (error) {
+        console.error('Error setting Web SDK volume:', error)
+      }
+    }
+    
+    // Log for debugging if both methods failed
+    if (!deviceVolumeSuccess && isPremium && isWebPlaybackReady) {
+      console.warn('Volume change may not have taken effect - both device and Web SDK updates had issues')
     }
   }, [isPremium, isWebPlaybackReady, setWebVolume, setSpotifyVolume])
+
+  // Seek handler for progress bar
+  const handleSeek = useCallback(async (newProgress: number[]) => {
+    if (!currentTrack || !isPremium || !isWebPlaybackReady || !webSeek) return
+    
+    const progressPercent = newProgress[0]
+    const positionMs = Math.round((progressPercent / 100) * currentTrack.duration_ms)
+    
+    await webSeek(positionMs)
+  }, [currentTrack, isPremium, isWebPlaybackReady, webSeek])
 
   // Sync volume from external changes (keyboard/buttons)
   useEffect(() => {
@@ -899,7 +922,8 @@ export default function VinylPlayer() {
                 max={100}
                 step={0.1}
                 className="w-32"
-                disabled={true}
+                disabled={!isPremium || !isWebPlaybackReady}
+                onValueChange={handleSeek}
               />
               <span className="text-xs w-10" style={{
                 color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
