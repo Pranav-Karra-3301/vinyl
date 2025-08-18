@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause, SkipBack, SkipForward, Volume2, LogOut, Music } from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, LogOut, Music } from "lucide-react"
 import Image from "next/image"
 import { useSpotify } from "@/hooks/use-spotify"
 import { useWebPlayback } from "@/hooks/use-web-playback"
@@ -677,6 +677,8 @@ export default function VinylPlayer() {
                       }
                       
                       switch (design) {
+                        case 'default':
+                          return '/record.svg'
                         case 'design1':
                           return '/Vinyl Record Design Aug 14 2025.png'
                         case 'design2':
@@ -959,27 +961,8 @@ export default function VinylPlayer() {
           )}
         </div>
 
-        {/* Right: Volume and settings */}
+        {/* Right: Settings */}
         <div className="flex items-center gap-3 flex-1 justify-end">
-          {playbackState?.device && (
-            <div className="flex items-center gap-2">
-              <Volume2 className="w-4 h-4" style={{
-                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
-              }} />
-              <Slider 
-                value={[localVolume]} 
-                max={100} 
-                className="w-20"
-                disabled={false}
-                onValueChange={handleVolumeChange}
-              />
-              <span className="text-xs w-8 text-center" style={{
-                color: theme === 'album' ? 'rgba(255,255,255,0.9)' : (theme === 'dark' || theme === 'amoled') ? 'rgba(255,255,255,0.6)' : undefined
-              }}>
-                {Math.round(localVolume)}
-              </span>
-            </div>
-          )}
           {isPremium && isWebPlaybackReady && (
             <RecentItemsPopup onPlay={playUri} isPremium={isPremium} />
           )}

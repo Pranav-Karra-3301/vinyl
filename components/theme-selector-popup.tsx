@@ -289,12 +289,12 @@ export function ThemeSelectorPopup({ currentTheme, onThemeChange, currentAlbumIm
 
   const handleThemeSelect = (themeId: string) => {
     onThemeChange(themeId)
-    setIsOpen(false)
+    // Keep popup open after selection, like recents popup
   }
 
   const handleVinylDesignSelect = (designId: VinylDesignType) => {
     onVinylDesignChange(designId)
-    setIsOpen(false)
+    // Keep popup open after selection, like recents popup
   }
 
   return (
