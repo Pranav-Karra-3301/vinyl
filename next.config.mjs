@@ -9,6 +9,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Enable source maps in production for debugging
+  productionBrowserSourceMaps: true,
 }
 
 export default nextConfig
