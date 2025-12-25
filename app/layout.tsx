@@ -2,17 +2,39 @@ import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Vinyl',
-  description: 'A beautiful vinyl record player for Spotify',
+  metadataBase: new URL('https://music.pranavkarra.me'),
+  title: {
+    default: 'Vinyl - Spotify Record Player',
+    template: '%s | Vinyl',
+  },
+  description: 'A beautiful vinyl record player interface for Spotify. Control your music with an elegant, nostalgic vinyl experience featuring realistic animations and dynamic album-based theming.',
+  keywords: ['Spotify', 'vinyl', 'record player', 'music', 'streaming', 'web player', 'Spotify player', 'music visualizer'],
+  authors: [{ name: 'Pranav Karra' }],
+  creator: 'Pranav Karra',
+  publisher: 'Pranav Karra',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   icons: {
     icon: '/record.svg',
+    apple: '/record.svg',
   },
+  manifest: '/manifest.json',
   openGraph: {
     title: 'Vinyl - Spotify Record Player',
-    description: 'A beautiful vinyl record player for Spotify',
+    description: 'A beautiful vinyl record player interface for Spotify with realistic animations and dynamic theming.',
     url: 'https://music.pranavkarra.me',
     siteName: 'Vinyl',
     images: [
@@ -20,7 +42,7 @@ export const metadata: Metadata = {
         url: '/placeholder_album.png',
         width: 800,
         height: 800,
-        alt: 'Vinyl Record Player',
+        alt: 'Vinyl Record Player - A nostalgic Spotify experience',
       },
     ],
     locale: 'en_US',
@@ -29,9 +51,35 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Vinyl - Spotify Record Player',
-    description: 'A beautiful vinyl record player for Spotify',
+    description: 'A beautiful vinyl record player interface for Spotify with realistic animations.',
     images: ['/placeholder_album.png'],
+    creator: '@pranavkarra',
   },
+  alternates: {
+    canonical: 'https://music.pranavkarra.me',
+  },
+  category: 'music',
+}
+
+// Structured Data for SEO
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Vinyl',
+  description: 'A beautiful vinyl record player interface for Spotify',
+  url: 'https://music.pranavkarra.me',
+  applicationCategory: 'MusicApplication',
+  operatingSystem: 'Web Browser',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+  author: {
+    '@type': 'Person',
+    name: 'Pranav Karra',
+  },
+  screenshot: 'https://music.pranavkarra.me/placeholder_album.png',
 }
 
 export default function RootLayout({
@@ -74,8 +122,13 @@ body::-webkit-scrollbar {
         `}</style>
       </head>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         {children}
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
