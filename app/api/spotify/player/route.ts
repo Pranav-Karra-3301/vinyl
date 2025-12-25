@@ -70,15 +70,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
     
-    let url = endpoint
+    // Build URL with properly encoded query parameters to prevent URL injection
+    const urlParams = new URLSearchParams()
     if (action === 'volume') {
-      url = `${endpoint}?volume_percent=${Math.round(volume_percent)}`
-      if (device_id) {
-        url += `&device_id=${device_id}`
-      }
-    } else if (device_id) {
-      url = `${endpoint}?device_id=${device_id}`
+      urlParams.set('volume_percent', String(Math.round(volume_percent)))
     }
+    if (device_id && typeof device_id === 'string') {
+      urlParams.set('device_id', device_id)
+    }
+    const url = urlParams.toString() ? `${endpoint}?${urlParams.toString()}` : endpoint
     
     const response = await fetch(url, {
       method: 'PUT',

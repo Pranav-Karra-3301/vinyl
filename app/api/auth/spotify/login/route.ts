@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 
 const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize'
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
@@ -21,8 +22,8 @@ const SCOPES = [
 ].join(' ')
 
 export async function GET() {
-  // Generate random state for security
-  const state = Math.random().toString(36).substring(7)
+  // Generate cryptographically secure random state for CSRF protection
+  const state = randomBytes(32).toString('hex')
   
   // Build authorization URL
   const params = new URLSearchParams({

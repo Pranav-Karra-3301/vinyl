@@ -8,15 +8,19 @@ const REDIRECT_URI =
     ? 'https://music.pranavkarra.me/api/auth/spotify/callback'
     : 'http://localhost:3000/api/auth/spotify/callback'
 
+// Allowed error codes from Spotify OAuth
+const ALLOWED_ERRORS = ['access_denied', 'state_mismatch', 'no_code', 'token_exchange_failed']
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const error = searchParams.get('error')
-  
-  // Check for errors
+
+  // Check for errors - sanitize to prevent open redirect
   if (error) {
-    return NextResponse.redirect(new URL('/?error=' + error, request.url))
+    const safeError = ALLOWED_ERRORS.includes(error) ? error : 'auth_error'
+    return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(safeError)}`, request.url))
   }
   
   // Verify state

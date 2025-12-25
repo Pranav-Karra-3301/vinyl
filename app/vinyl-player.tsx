@@ -67,16 +67,15 @@ export default function VinylPlayer() {
   
   // System status checks
   const getSystemStatus = () => {
-    // Check environment variables (these will be available on Vercel deployment)
-    const hasClientId = typeof window !== 'undefined' 
-      ? (!!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || 
+    // Check environment variables (client ID can be public, secret stays server-side)
+    const hasClientId = typeof window !== 'undefined'
+      ? (!!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID ||
          localStorage.getItem('spotify_client_id') !== null)
       : !!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID
-      
-    const hasClientSecret = typeof window !== 'undefined'
-      ? (!!process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_SECRET || 
-         localStorage.getItem('spotify_client_secret') !== null)
-      : true // Assume it's on server/Vercel if not in browser
+
+    // Client secret is server-side only - we infer it's configured if auth works
+    // Never expose SPOTIFY_CLIENT_SECRET to the frontend
+    const hasClientSecret = isAuthenticated || true // Server-side config assumed valid
     
     const checks = {
       spotifyClientId: hasClientId,
@@ -303,23 +302,6 @@ export default function VinylPlayer() {
       setLocalVolume(webVolume)
     }
   }, [playbackState?.device?.volume_percent, webVolume])
-
-  // Poll volume more frequently to catch external changes (keyboard, physical buttons)
-  useEffect(() => {
-    if (!isAuthenticated || !isPremium) return
-
-    const pollVolume = async () => {
-      // Only poll if we have a valid playback state
-      if (playbackState?.device?.id) {
-        // This will trigger a refresh of playback state which includes volume
-        // The volume update will be handled by the useEffect above
-      }
-    }
-
-    // Poll every 2 seconds when active to catch external volume changes
-    const interval = setInterval(pollVolume, 2000)
-    return () => clearInterval(interval)
-  }, [isAuthenticated, isPremium, playbackState?.device?.id])
 
   const handleSkipNext = useCallback(() => {
     runTrackTransition(skipToNext)

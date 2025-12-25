@@ -75,7 +75,9 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
         body.uris = [uri]
       }
 
-      await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+      const playUrl = new URL('https://api.spotify.com/v1/me/player/play')
+      playUrl.searchParams.set('device_id', deviceId)
+      await fetch(playUrl.toString(), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -152,7 +154,6 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
 
       // Ready
       spotifyPlayer.addListener('ready', ({ device_id }) => {
-        console.log('Ready with Device ID', device_id)
         setDeviceId(device_id)
         setIsReady(true)
         // Auto-transfer playback to this device
@@ -160,8 +161,7 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
       })
 
       // Not Ready
-      spotifyPlayer.addListener('not_ready', ({ device_id }) => {
-        console.log('Device ID has gone offline', device_id)
+      spotifyPlayer.addListener('not_ready', () => {
         setIsReady(false)
       })
 
@@ -196,11 +196,7 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
       ;(spotifyPlayer as any)._volumeSyncInterval = volumeSyncInterval
 
       // Connect to the player
-      spotifyPlayer.connect().then((success: boolean) => {
-        if (success) {
-          console.log('Successfully connected to Spotify!')
-        }
-      })
+      spotifyPlayer.connect()
 
       setPlayer(spotifyPlayer as any)
       playerRef.current = spotifyPlayer as any
