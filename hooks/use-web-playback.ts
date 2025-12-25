@@ -196,7 +196,7 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
       ;(spotifyPlayer as any)._volumeSyncInterval = volumeSyncInterval
 
       // Connect to the player
-      spotifyPlayer.connect()
+      spotifyPlayer.connect().catch(error => console.error('Error connecting to Spotify player:', error))
 
       setPlayer(spotifyPlayer as any)
       playerRef.current = spotifyPlayer as any
