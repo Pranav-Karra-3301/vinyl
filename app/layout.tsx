@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import { ClientLayout } from '@/components/client-layout'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -126,7 +127,7 @@ body::-webkit-scrollbar {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        {children}
+        <ClientLayout>{children}</ClientLayout>
         <Analytics />
         <SpeedInsights />
       </body>

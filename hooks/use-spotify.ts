@@ -56,26 +56,77 @@ export function useSpotify() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Refresh access token
+  const refreshToken = useCallback(async (): Promise<boolean> => {
+    if (isRefreshing) return false
+    setIsRefreshing(true)
+
+    try {
+      const response = await fetch('/api/auth/spotify/refresh', { method: 'POST' })
+      if (response.ok) {
+        // Token refreshed successfully, get new token
+        const tokenResponse = await fetch('/api/spotify/token')
+        if (tokenResponse.ok) {
+          const { token } = await tokenResponse.json()
+          setAccessToken(token)
+        }
+        setIsRefreshing(false)
+        return true
+      } else {
+        const data = await response.json()
+        if (data.code === 'REAUTH_REQUIRED') {
+          // Refresh token expired, user needs to re-authenticate
+          setUser(null)
+          setAccessToken(null)
+        }
+        setIsRefreshing(false)
+        return false
+      }
+    } catch {
+      setIsRefreshing(false)
+      return false
+    }
+  }, [isRefreshing])
+
+  // Wrapper for API calls with automatic token refresh
+  const fetchWithRefresh = useCallback(async (
+    url: string,
+    options?: RequestInit,
+    retried = false
+  ): Promise<Response> => {
+    const response = await fetch(url, options)
+
+    if (response.status === 401 && !retried) {
+      const refreshed = await refreshToken()
+      if (refreshed) {
+        return fetchWithRefresh(url, options, true)
+      }
+    }
+
+    return response
+  }, [refreshToken])
 
   // Fetch queue data
   const fetchQueue = useCallback(async () => {
     try {
-      const response = await fetch('/api/spotify/queue')
+      const response = await fetchWithRefresh('/api/spotify/queue')
       if (response.ok) {
         const queueData = await response.json()
         setQueue(queueData)
         return queueData
       }
-    } catch (err) {
-      console.error('Error fetching queue:', err)
+    } catch {
+      // Silently fail for queue fetch
     }
     return null
-  }, [])
+  }, [fetchWithRefresh])
 
   // Fetch user data and token
   const fetchUser = useCallback(async () => {
     try {
-      const response = await fetch('/api/spotify/me')
+      const response = await fetchWithRefresh('/api/spotify/me')
       if (response.ok) {
         const userData = await response.json()
         setUser(userData)
@@ -90,17 +141,16 @@ export function useSpotify() {
         setUser(null)
         setAccessToken(null)
       }
-    } catch (err) {
-      console.error('Error fetching user:', err)
+    } catch {
       setError('Failed to fetch user data')
     }
     return null
-  }, [])
+  }, [fetchWithRefresh])
 
   // Fetch playback state
   const fetchPlaybackState = useCallback(async () => {
     try {
-      const response = await fetch('/api/spotify/player')
+      const response = await fetchWithRefresh('/api/spotify/player')
       if (response.ok) {
         const data = await response.json()
         setPlaybackState(data)
@@ -108,173 +158,168 @@ export function useSpotify() {
         await fetchQueue()
         return data
       }
-    } catch (err) {
-      console.error('Error fetching playback state:', err)
+    } catch {
+      // Silently fail for playback state fetch
     }
     return null
-  }, [fetchQueue])
+  }, [fetchQueue, fetchWithRefresh])
 
   // Control playback
   const play = useCallback(async () => {
     try {
-      const response = await fetch('/api/spotify/player', {
+      const response = await fetchWithRefresh('/api/spotify/player', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'play' })
       })
-      
+
       if (response.status === 403) {
         const data = await response.json()
         setError(data.message)
         return false
       }
-      
+
       if (response.ok) {
         await fetchPlaybackState()
         return true
       }
-    } catch (err) {
-      console.error('Error playing:', err)
+    } catch {
       setError('Failed to play')
     }
     return false
-  }, [fetchPlaybackState])
+  }, [fetchPlaybackState, fetchWithRefresh])
 
   const pause = useCallback(async () => {
     try {
-      const response = await fetch('/api/spotify/player', {
+      const response = await fetchWithRefresh('/api/spotify/player', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'pause' })
       })
-      
+
       if (response.status === 403) {
         const data = await response.json()
         setError(data.message)
         return false
       }
-      
+
       if (response.ok) {
         await fetchPlaybackState()
         return true
       }
-    } catch (err) {
-      console.error('Error pausing:', err)
+    } catch {
       setError('Failed to pause')
     }
     return false
-  }, [fetchPlaybackState])
+  }, [fetchPlaybackState, fetchWithRefresh])
 
   const skipToNext = useCallback(async () => {
     try {
-      const response = await fetch('/api/spotify/player', {
+      const response = await fetchWithRefresh('/api/spotify/player', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'next' })
       })
-      
+
       if (response.status === 403) {
         const data = await response.json()
         setError(data.message)
         return false
       }
-      
+
       if (response.ok) {
         // Wait a bit for the track to change
         setTimeout(() => fetchPlaybackState(), 500)
         return true
       }
-    } catch (err) {
-      console.error('Error skipping to next:', err)
+    } catch {
       setError('Failed to skip')
     }
     return false
-  }, [fetchPlaybackState])
+  }, [fetchPlaybackState, fetchWithRefresh])
 
   const skipToPrevious = useCallback(async () => {
     try {
-      const response = await fetch('/api/spotify/player', {
+      const response = await fetchWithRefresh('/api/spotify/player', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'previous' })
       })
-      
+
       if (response.status === 403) {
         const data = await response.json()
         setError(data.message)
         return false
       }
-      
+
       if (response.ok) {
         // Wait a bit for the track to change
         setTimeout(() => fetchPlaybackState(), 500)
         return true
       }
-    } catch (err) {
-      console.error('Error skipping to previous:', err)
+    } catch {
       setError('Failed to skip')
     }
     return false
-  }, [fetchPlaybackState])
+  }, [fetchPlaybackState, fetchWithRefresh])
 
   const setVolume = useCallback(async (volumePercent: number) => {
     try {
-      const response = await fetch('/api/spotify/player', {
+      const response = await fetchWithRefresh('/api/spotify/player', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'volume', volume_percent: volumePercent })
       })
-      
+
       if (response.status === 403) {
         const data = await response.json()
         setError(data.message)
         return false
       }
-      
+
       if (response.ok) {
         // Refresh playback state to get updated volume
         setTimeout(() => fetchPlaybackState(), 100)
         return true
       }
-    } catch (err) {
-      console.error('Error setting volume:', err)
+    } catch {
       setError('Failed to set volume')
     }
     return false
-  }, [fetchPlaybackState])
+  }, [fetchPlaybackState, fetchWithRefresh])
 
   const fetchDevices = useCallback(async () => {
     try {
-      const response = await fetch('/api/spotify/devices')
+      const response = await fetchWithRefresh('/api/spotify/devices')
       if (response.ok) {
         const data = await response.json()
         setDevices(data.devices || [])
         return data.devices || []
       }
-    } catch (err) {
-      console.error('Error fetching devices:', err)
+    } catch {
+      // Silently fail for device fetch
     }
     return []
-  }, [])
+  }, [fetchWithRefresh])
 
   const transferPlayback = useCallback(async (deviceId: string, play: boolean = false) => {
     try {
-      const response = await fetch('/api/spotify/player', {
+      const response = await fetchWithRefresh('/api/spotify/player', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           action: 'transfer',
           device_id: deviceId,
           play
         })
       })
-      
+
       if (response.status === 403) {
         const data = await response.json()
         setError(data.message || 'Premium required to transfer playback')
         return false
       }
-      
+
       if (response.ok) {
         // Refresh playback state after transfer
         setTimeout(() => {
@@ -283,12 +328,11 @@ export function useSpotify() {
         }, 500)
         return true
       }
-    } catch (err) {
-      console.error('Error transferring playback:', err)
+    } catch {
       setError('Failed to transfer playback')
     }
     return false
-  }, [fetchPlaybackState])
+  }, [fetchPlaybackState, fetchDevices, fetchWithRefresh])
 
   const logout = useCallback(async () => {
     try {
@@ -296,8 +340,8 @@ export function useSpotify() {
       setUser(null)
       setPlaybackState(null)
       window.location.reload()
-    } catch (err) {
-      console.error('Error logging out:', err)
+    } catch {
+      // Silently fail, will reload anyway
     }
   }, [])
 
