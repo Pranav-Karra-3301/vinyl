@@ -34,8 +34,8 @@ This application uses Spotify OAuth2 Authorization Code Flow. Users must authent
 - Album artwork is fetched directly from Spotify's CDN
 
 ## Links
-- Website: https://music.pranavkarra.me
-- Developer: Pranav Karra
+- Website: https://vinyl.pranavkarra.me
+- Developer: Pranav Karra (https://pranavkarra.me)
 
 ## Contact
 For questions about this application, please contact the developer through GitHub.

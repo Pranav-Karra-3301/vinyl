@@ -16,7 +16,7 @@
     },
     {
       "src": "/placeholder_album.png",
-      "sizes": "800x800",
+      "sizes": "720x720",
       "type": "image/png",
       "purpose": "any"
     }
