@@ -53,9 +53,11 @@ export async function middleware(request: NextRequest) {
     const expiresAt = request.cookies.get('spotify_token_expires_at')?.value
     const credentials = request.cookies.get('spotify_client_credentials')?.value
     
-    // If no tokens at all, let the API route handle the 401
+    // No tokens at all means there is nothing to refresh. Answer 403 instead of
+    // letting the route 401: bundles from before the refresh-loop fix answer
+    // every 401 with a refresh and retry forever (~16 req/s per open tab).
     if (!accessToken && !refreshToken) {
-      return NextResponse.next()
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 403 })
     }
     
     // Check if token needs refresh

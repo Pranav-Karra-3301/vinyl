@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 interface SpotifyUser {
   display_name: string
@@ -56,7 +56,9 @@ export function useSpotify() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  // A ref, not state: as state, every 401 re-created fetchWithRetry and every
+  // callback built on it, which re-ran the init effect and looped forever.
+  const isRefreshing = useRef(false)
 
   // Helper function to handle API calls with automatic retry on 401
   const fetchWithRetry = useCallback(async (url: string, options?: RequestInit) => {
@@ -64,8 +66,8 @@ export function useSpotify() {
       const response = await fetch(url, options)
       
       // If we get a 401, try to refresh the token
-      if (response.status === 401 && !isRefreshing) {
-        setIsRefreshing(true)
+      if (response.status === 401 && !isRefreshing.current) {
+        isRefreshing.current = true
         try {
           const refreshResponse = await fetch('/api/auth/spotify/refresh', {
             method: 'POST'
@@ -74,17 +76,17 @@ export function useSpotify() {
           if (refreshResponse.ok) {
             // Token refreshed successfully, retry the original request
             const retryResponse = await fetch(url, options)
-            setIsRefreshing(false)
+            isRefreshing.current = false
             return retryResponse
           } else {
             // Refresh failed, user needs to login again
-            setIsRefreshing(false)
+            isRefreshing.current = false
             setUser(null)
             setAccessToken(null)
             return response
           }
         } catch (err) {
-          setIsRefreshing(false)
+          isRefreshing.current = false
           console.error('Error refreshing token:', err)
           return response
         }
@@ -94,7 +96,7 @@ export function useSpotify() {
     }
     
     return makeRequest()
-  }, [isRefreshing])
+  }, [])
 
   // Check if refresh is needed on app start
   const checkAndRefreshToken = useCallback(async () => {
