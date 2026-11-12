@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vinyl",
+  "account_id": "ed61a2220d42b5b8a61059cce9af9980",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "vinyl"
+    }
+  ],
+  // Zone route rather than a custom domain: the vinyl.pranavkarra.me DNS
+  // record predates the move (proxied, still pointing at Vercel) and the route
+  // intercepts every request before it reaches that origin.
+  "routes": [
+    { "pattern": "vinyl.pranavkarra.me/*", "zone_name": "pranavkarra.me" }
+  ],
+  "workers_dev": false,
+  "observability": {
+    "enabled": true
+  }
+}
