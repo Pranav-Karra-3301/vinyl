@@ -5,7 +5,7 @@ const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET
 const REDIRECT_URI =
   process.env.NODE_ENV === 'production'
-    ? 'https://music.pranavkarra.me/api/auth/spotify/callback'
+    ? 'https://vinyl.pranavkarra.me/api/auth/spotify/callback'
     : 'http://localhost:3000/api/auth/spotify/callback'
 
 // Allowed error codes from Spotify OAuth
